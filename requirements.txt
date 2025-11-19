@@ -1,0 +1,8 @@
+pandas
+geopandas
+shapely
+requests
+gspread
+oauth2client
+openpyxl
+rtree
