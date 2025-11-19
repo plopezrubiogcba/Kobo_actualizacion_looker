@@ -20,24 +20,26 @@ URL_KOBO = f"https://kf.kobotoolbox.org/api/v2/assets/{UID_KOBO}/data.json"
 NOMBRE_SPREADSHEET = "puntos flash"
 NOMBRE_HOJA = "Sheet4"
 
-# URL PÚBLICA DE LAS COMUNAS (CABA DATA)
-URL_COMUNAS_GEOJSON = "https://cdn.buenosaires.gob.ar/datosabiertos/datasets/comunas/comunas.geojson"
+# URL COMUNAS (Respaldo estable en GitHub - Formato GeoJSON)
+URL_COMUNAS_GEOJSON = "https://raw.githubusercontent.com/macagua/example.data.geojson/master/comunas.geojson"
 
-# RUTAS LOCALES (Solo para el KML)
+# CONFIGURACIÓN DE RUTAS (Buscador automático para el KML local)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RUTA_KML_ANILLO = None
 
-# Buscador del KML en el repositorio
-print(f"--- Buscando KML en {BASE_DIR} ---")
+print(f"--- Configurando rutas en: {BASE_DIR} ---")
+
+# Buscamos el KML recursivamente
 for root, dirs, files in os.walk(BASE_DIR):
     for file in files:
         if 'recoleta' in file.lower() and file.lower().endswith('.kml'):
             RUTA_KML_ANILLO = os.path.join(root, file)
-            print(f"   > Encontrado KML: {RUTA_KML_ANILLO}")
+            print(f"   > KML encontrado: {RUTA_KML_ANILLO}")
             break
 
 if not RUTA_KML_ANILLO:
-    print("ERROR: No se encontró el archivo KML 'Recoleta...'. Asegúrate de subirlo al GitHub.")
+    print("\nERROR CRÍTICO: No se encontró el archivo KML 'Recoleta...'.")
+    print("Asegúrate de que el archivo .kml esté subido en el GitHub.")
     sys.exit(1)
 
 
@@ -54,6 +56,7 @@ def asignar_turno(fecha):
 
 def clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf):
     print("--- Clasificando Localización ---")
+    # Asegurar CRS
     puntos_gdf = puntos_gdf.to_crs("EPSG:4326")
     anillo_gdf = anillo_gdf.to_crs("EPSG:4326")
     comunas_gdf = comunas_gdf.to_crs("EPSG:4326")
@@ -72,10 +75,13 @@ def clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf):
     if not puntos_para_comunas.empty:
         puntos_en_comunas = gpd.sjoin(puntos_para_comunas, comunas_gdf, how="inner", predicate='within')
         if not puntos_en_comunas.empty:
-            col_comuna = next((c for c in ['COMUNAS', 'comunas', 'DOM_COMUNA'] if c in puntos_en_comunas.columns), None)
+            # Buscamos variantes comunes del nombre de la columna en el GeoJSON
+            col_comuna = next((c for c in ['COMUNAS', 'comunas', 'DOM_COMUNA', 'comuna', 'barrio', 'BARRIO'] if c in puntos_en_comunas.columns), None)
             if col_comuna:
-                valores = puntos_en_comunas[col_comuna].fillna(0).astype(int).astype(str)
+                valores = puntos_en_comunas[col_comuna].fillna(0).astype(str)
                 puntos_gdf.loc[puntos_en_comunas.index, 'Localizacion'] = valores
+            else:
+                print(f"Advertencia: Columnas disponibles en Comunas: {comunas_gdf.columns}")
     
     return puntos_gdf['Localizacion']
 
@@ -89,6 +95,7 @@ def asignar_recorrido(gdf, poligonos):
     return resultado
 
 def procesar_datos_geoespaciales(df_kobo):
+    # 1. Parseo Lat/Lon
     print("Separando coordenadas latitud/longitud...")
     if 'geo_ref/geo_punto' in df_kobo.columns:
         split_coords = df_kobo['geo_ref/geo_punto'].astype(str).str.split(' ', expand=True)
@@ -106,20 +113,36 @@ def procesar_datos_geoespaciales(df_kobo):
         crs="EPSG:4326"
     )
 
-    try:
-        anillo_gdf = gpd.read_file(RUTA_KML_ANILLO, driver='KML')
-        if anillo_gdf.crs is None: anillo_gdf.set_crs("EPSG:4326", inplace=True)
-        
-        print(f"Descargando mapa de comunas desde: {URL_COMUNAS_GEOJSON} ...")
-        comunas_gdf = gpd.read_file(URL_COMUNAS_GEOJSON)
-        
-    except Exception as e:
-        print(f"CRITICAL ERROR cargando capas: {e}")
-        try:
-            anillo_gdf = gpd.read_file(RUTA_KML_ANILLO, layer='Nuevo Anillo Digital', driver='KML')
-        except:
-            return None
+    # --- CARGA DE CAPAS ---
+    anillo_gdf = None
+    comunas_gdf = None
 
+    # A. Cargar KML (Local) con manejo de errores de capa
+    try:
+        print(f"Cargando KML: {RUTA_KML_ANILLO}")
+        anillo_gdf = gpd.read_file(RUTA_KML_ANILLO, layer='Nuevo Anillo Digital', driver='KML')
+    except Exception as e:
+        print(f"⚠️ Advertencia KML capa específica: {e}")
+        print("Intentando cargar capa por defecto...")
+        try:
+            anillo_gdf = gpd.read_file(RUTA_KML_ANILLO, driver='KML')
+        except Exception as e2:
+            print(f"❌ ERROR FATAL KML: {e2}")
+            sys.exit(1)
+
+    if anillo_gdf is not None and anillo_gdf.crs is None:
+        anillo_gdf.set_crs("EPSG:4326", inplace=True)
+
+    # B. Cargar Comunas (Remoto)
+    try:
+        print(f"Descargando Comunas de: {URL_COMUNAS_GEOJSON}")
+        comunas_gdf = gpd.read_file(URL_COMUNAS_GEOJSON)
+    except Exception as e:
+        print(f"❌ ERROR FATAL descargando Comunas: {e}")
+        sys.exit(1)
+
+
+    # Polígonos Hardcoded
     poligonos_recorrido = {
         'Recorrido A': Polygon([(-58.41017, -34.588232), (-58.413901, -34.594177), (-58.413904, -34.599714),(-58.400064, -34.600033), (-58.386224, -34.599855), (-58.398154, -34.59498),(-58.404592, -34.593108), (-58.386524, -34.595263), (-58.41017, -34.588232)]),
         'Recorrido B': Polygon([(-58.389185, -34.584593), (-58.395365, -34.587137), (-58.400944, -34.594168),(-58.398154, -34.59498), (-58.386524, -34.595263), (-58.383284, -34.587544),(-58.388112, -34.59256), (-58.389185, -34.584593)]),
@@ -145,6 +168,7 @@ if __name__ == '__main__':
         creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS_JSON"])
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     else:
+        # Buscar credenciales locales
         ruta_creds = next((os.path.join(root, 'credenciales.json') for root, _, files in os.walk(BASE_DIR) if 'credenciales.json' in files), 'credenciales.json')
         creds = ServiceAccountCredentials.from_json_keyfile_name(ruta_creds, scope)
 
