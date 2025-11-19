@@ -1,0 +1,37 @@
+name: Actualizar Kobo a Looker
+
+on:
+  schedule:
+    # Se ejecuta cada hora en el minuto 15 (ej: 10:15, 11:15...)
+    # Esto evita la congestión de las horas en punto en los servidores de GitHub
+    - cron: '15 * * * *'
+  workflow_dispatch: # Permite ejecutar manualmente desde la pestaña Actions
+
+jobs:
+  run-etl-process:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v3
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Instalar dependencias del sistema
+        # Geopandas necesita librerías de C++ (spatialindex) para funcionar en Linux
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libspatialindex-dev
+
+      - name: Instalar librerías de Python
+        run: |
+          pip install -r requirements.txt
+
+      - name: Ejecutar Script Principal
+        env:
+          KOBO_TOKEN: ${{ secrets.KOBO_TOKEN }}
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+        run: python main.py
