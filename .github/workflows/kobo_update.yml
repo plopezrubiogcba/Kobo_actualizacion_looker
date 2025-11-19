@@ -34,4 +34,4 @@ jobs:
         env:
           KOBO_TOKEN: ${{ secrets.KOBO_TOKEN }}
           GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
-        run: python main.py
+        run: python main_act_flash.py
