@@ -40,6 +40,8 @@ for root, dirs, files in os.walk(BASE_DIR):
 
 if not RUTA_KML_ANILLO or not RUTA_SHP_COMUNAS:
     print("\n❌ ERROR CRÍTICO: Faltan archivos en el GitHub.")
+    print(f"   KML: {'OK' if RUTA_KML_ANILLO else 'FALTA'}")
+    print(f"   SHP: {'OK' if RUTA_SHP_COMUNAS else 'FALTA'}")
     sys.exit(1)
 
 
@@ -55,7 +57,11 @@ def asignar_turno(fecha):
     else: return None
 
 def clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf):
-    print("--- Clasificando Localización ---")
+    """
+    Clasifica los puntos en 'AD' (Anillo Digital) o por número de comuna.
+    Devuelve valores limpios para evitar errores de tipo.
+    """
+    print("--- Iniciando clasificación de localización ---")
     
     puntos_gdf = puntos_gdf.to_crs("EPSG:4326")
     anillo_gdf = anillo_gdf.to_crs("EPSG:4326")
@@ -63,35 +69,42 @@ def clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf):
 
     puntos_gdf['Localizacion'] = 'Fuera de Zona'
 
-    # A. Anillo Digital
+    # 1. Anillo Digital (AD)
     puntos_en_anillo = gpd.sjoin(puntos_gdf, anillo_gdf, how="inner", predicate='within')
     if not puntos_en_anillo.empty:
+        print(f"   -> {len(puntos_en_anillo)} puntos en Anillo Digital (AD).")
         puntos_gdf.loc[puntos_en_anillo.index, 'Localizacion'] = 'AD'
 
-    # B. Comunas
+    # 2. Comunas (Resto)
     puntos_fuera_anillo_idx = puntos_gdf[puntos_gdf['Localizacion'] != 'AD'].index
     puntos_para_comunas = puntos_gdf.loc[puntos_fuera_anillo_idx]
 
     if not puntos_para_comunas.empty:
         puntos_en_comunas = gpd.sjoin(puntos_para_comunas, comunas_gdf, how="inner", predicate='within')
+        
         if not puntos_en_comunas.empty:
-            # Buscar columna
-            possible_cols = ['COMUNAS', 'comunas', 'DOM_COMUNA', 'NAM', 'barrio', 'BARRIO', 'COMMUNE', 'ID', 'objeto']
-            col_comuna = next((c for c in possible_cols if c in puntos_en_comunas.columns), None)
+            # Buscar columna dinámica
+            comuna_col_found = None
+            possible_cols = ['comunas', 'COMUNAS', 'comuna', 'COMUNA', 'NAM', 'ID', 'OBJETO', 'barrio']
             
-            if col_comuna:
-                # --- CORRECCIÓN APLICADA AQUÍ ---
-                # 1. Convertimos a string puro (como en tu código original)
-                valores = puntos_en_comunas[col_comuna].astype(str)
+            for col in possible_cols:
+                if col in puntos_en_comunas.columns:
+                    comuna_col_found = col
+                    break
+            
+            if comuna_col_found:
+                print(f"   -> {len(puntos_en_comunas)} puntos en Comunas (Columna: '{comuna_col_found}').")
                 
-                # 2. Limpieza segura: Si termina en .0 (ej: "15.0"), lo quitamos. 
-                # Si dice "COMUNA 12", lo deja tal cual. No intentamos convertir a float.
+                # Extraer valores sin forzar conversión numérica todavía para evitar crashes
+                # Simplemente limpiamos el .0 si es string
+                valores = puntos_en_comunas[comuna_col_found].astype(str)
                 valores = valores.str.replace(r'\.0$', '', regex=True)
                 
                 puntos_gdf.loc[puntos_en_comunas.index, 'Localizacion'] = valores
             else:
-                 print(f"⚠️ No se encontró columna de nombre en SHP. Cols: {comunas_gdf.columns}")
-    
+                print(f"   ⚠️ Error: No se encontró columna de nombre en SHP. Disponibles: {comunas_gdf.columns}")
+
+    print("--- Clasificación finalizada ---")
     return puntos_gdf['Localizacion']
 
 def asignar_recorrido(gdf, poligonos):
@@ -129,6 +142,7 @@ def procesar_datos_geoespaciales_total(df_kobo):
         
         if anillo_gdf.crs is None: anillo_gdf.set_crs("EPSG:4326", inplace=True)
         comunas_gdf = gpd.read_file(RUTA_SHP_COMUNAS)
+        
     except Exception as e:
         print(f"❌ ERROR FATAL CARGANDO CAPAS: {e}")
         sys.exit(1)
@@ -148,10 +162,10 @@ def procesar_datos_geoespaciales_total(df_kobo):
 # --- 4. MAIN EJECUCIÓN ---
 
 if __name__ == '__main__':
-    print(">>> INICIO DE PROCESO INTEGRADO <<<")
+    print(">>> INICIO DE PROCESO INTEGRADO (ESTRICTO) <<<")
     
-    # 1. Descargar KOBO
-    print("1. Descargando Kobo...")
+    # 1. KOBO
+    print("1. Descargando Kobo Completo...")
     headers = {"Authorization": f"Token {TOKEN_KOBO}"}
     try:
         resp = requests.get(URL_KOBO, headers=headers)
@@ -163,13 +177,13 @@ if __name__ == '__main__':
 
     if df_raw.empty: sys.exit(0)
 
-    # 2. PROCESAR TODO
-    print("2. Procesando geoespacialmente...")
+    # 2. PROCESAR GEOESPACIALMENTE
+    print("2. Procesando lógica geoespacial...")
     df_procesado = procesar_datos_geoespaciales_total(df_raw)
     
     if df_procesado is None or df_procesado.empty: sys.exit(1)
 
-    # 3. Verificar duplicados
+    # 3. GOOGLE SHEETS & DUPLICADOS
     print("3. Verificando duplicados...")
     scope = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets',
              "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
@@ -189,7 +203,7 @@ if __name__ == '__main__':
     except:
         ids_existentes = set()
     
-    # 4. Filtrar nuevos
+    # 4. FILTRAR NUEVOS
     if '_uuid' in df_procesado.columns:
         df_procesado['_uuid'] = df_procesado['_uuid'].astype(str)
         df_nuevos_final = df_procesado[~df_procesado['_uuid'].isin(ids_existentes)].copy()
@@ -197,12 +211,15 @@ if __name__ == '__main__':
         df_nuevos_final = df_procesado
 
     if df_nuevos_final.empty:
-        print(">>> Todo actualizado. <<<")
+        print(">>> Todo actualizado. No hay registros nuevos. <<<")
         sys.exit(0)
 
-    print(f"   > Subiendo {len(df_nuevos_final)} registros nuevos...")
+    print(f"   > Registros NUEVOS a subir: {len(df_nuevos_final)}")
 
-    # 5. FORMATEO (Fix apostrofes)
+    # 5. FORMATEO ESTRICTO (Tipos de Datos para Looker)
+    print("4. Aplicando formatos estrictos...")
+    
+    # A. FECHAS (Strings limpios)
     df_nuevos_final['hora_start'] = df_nuevos_final['start'].dt.strftime('%H:%M:%S')
     df_nuevos_final['start'] = df_nuevos_final['start'].dt.strftime('%Y-%m-%d')
 
@@ -228,24 +245,48 @@ if __name__ == '__main__':
     cols_finales = [c for c in columnas_deseadas if c in df_nuevos_final.columns]
     df_final = df_nuevos_final[cols_finales].copy()
 
-    # --- CORRECCIÓN FINAL DE TIPOS ---
-    # Convertir numéricos reales para evitar apostrofe
-    cols_numericas = ['latitude', 'longitude', 'Cantidad de personas en situación de calle observadas']
-    for col in cols_numericas:
+    # B. NUMÉRICOS (Sin apostrofe)
+    # Latitude/Longitude: Float
+    for col in ['latitude', 'longitude']:
         if col in df_final.columns:
             df_final[col] = pd.to_numeric(df_final[col], errors='coerce')
 
-    # Rellenar vacíos con None (para que gspread no ponga apostrofes en vacios)
+    # Cantidad de Personas: Integer
+    col_cant = 'Cantidad de personas en situación de calle observadas'
+    if col_cant in df_final.columns:
+        # Convertir a numérico, llenar NaN con 0 (o dejarlo si prefieres), pasar a int
+        df_final[col_cant] = pd.to_numeric(df_final[col_cant], errors='coerce').fillna(0).astype(int)
+
+    # C. LOCALIZACIÓN (Inteligente: Int si es numero, String si es texto como "AD")
+    # Iteramos para manejar tipos mixtos sin romper con astype
+    if 'Localizacion' in df_final.columns:
+        def limpiar_localizacion(valor):
+            try:
+                # Si es "AD" o texto, fallará float() -> se queda como string
+                # Si es "12" o "12.0", se convierte a float -> int -> return int puro
+                num = float(valor)
+                return int(num)
+            except (ValueError, TypeError):
+                return valor # Retorna "AD", "Fuera de Zona" o lo que sea texto
+        
+        df_final['Localizacion'] = df_final['Localizacion'].apply(limpiar_localizacion)
+
+    # D. LIMPIEZA FINAL PARA GSPREAD
+    # Reemplaza NaN con None (Python) que se traduce a celda vacía en Sheets
+    # NO HACEMOS astype(str) GENERAL AQUÍ, ESO CAUSABA EL ERROR DEL APOSTROFE
     df_final = df_final.where(pd.notnull(df_final), None)
 
-    # Carga
+    # 6. CARGA
+    print("5. Subiendo a Google Sheets...")
     if len(ids_existentes) == 0:
         sheet.clear()
         sheet.update([df_final.columns.values.tolist()] + df_final.values.tolist())
     else:
         encabezados = sheet.row_values(1)
+        # Reindex puede crear NaNs nuevos, volvemos a limpiar
         df_append = df_final.reindex(columns=encabezados)
         df_append = df_append.where(pd.notnull(df_append), None)
+        
         sheet.append_rows(df_append.values.tolist())
 
-    print(">>> ÉXITO: Carga completada. <<<")
+    print(">>> ÉXITO: Carga completada y formateada. <<<")
