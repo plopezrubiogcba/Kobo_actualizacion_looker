@@ -8,6 +8,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 import os
 import json
 import sys
+import re
 
 # --- 1. CONFIGURACIÓN GLOBAL ---
 
@@ -55,6 +56,7 @@ def asignar_turno(fecha):
 
 def clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf):
     print("--- Clasificando Localización ---")
+    
     puntos_gdf = puntos_gdf.to_crs("EPSG:4326")
     anillo_gdf = anillo_gdf.to_crs("EPSG:4326")
     comunas_gdf = comunas_gdf.to_crs("EPSG:4326")
@@ -73,14 +75,22 @@ def clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf):
     if not puntos_para_comunas.empty:
         puntos_en_comunas = gpd.sjoin(puntos_para_comunas, comunas_gdf, how="inner", predicate='within')
         if not puntos_en_comunas.empty:
+            # Buscar columna
             possible_cols = ['COMUNAS', 'comunas', 'DOM_COMUNA', 'NAM', 'barrio', 'BARRIO', 'COMMUNE', 'ID', 'objeto']
             col_comuna = next((c for c in possible_cols if c in puntos_en_comunas.columns), None)
             
             if col_comuna:
-                # Convertimos a int y luego string para limpiar (ej 1.0 -> "1")
-                # Pero el tipo final lo manejaremos en el formateo
-                valores = puntos_en_comunas[col_comuna].fillna(0).astype(float).astype(int).astype(str)
+                # --- CORRECCIÓN APLICADA AQUÍ ---
+                # 1. Convertimos a string puro (como en tu código original)
+                valores = puntos_en_comunas[col_comuna].astype(str)
+                
+                # 2. Limpieza segura: Si termina en .0 (ej: "15.0"), lo quitamos. 
+                # Si dice "COMUNA 12", lo deja tal cual. No intentamos convertir a float.
+                valores = valores.str.replace(r'\.0$', '', regex=True)
+                
                 puntos_gdf.loc[puntos_en_comunas.index, 'Localizacion'] = valores
+            else:
+                 print(f"⚠️ No se encontró columna de nombre en SHP. Cols: {comunas_gdf.columns}")
     
     return puntos_gdf['Localizacion']
 
@@ -192,7 +202,7 @@ if __name__ == '__main__':
 
     print(f"   > Subiendo {len(df_nuevos_final)} registros nuevos...")
 
-    # 5. FORMATEO ESTRICTO DE TIPOS DE DATOS (Aquí corregimos el error del apostrofe)
+    # 5. FORMATEO (Fix apostrofes)
     df_nuevos_final['hora_start'] = df_nuevos_final['start'].dt.strftime('%H:%M:%S')
     df_nuevos_final['start'] = df_nuevos_final['start'].dt.strftime('%Y-%m-%d')
 
@@ -218,36 +228,24 @@ if __name__ == '__main__':
     cols_finales = [c for c in columnas_deseadas if c in df_nuevos_final.columns]
     df_final = df_nuevos_final[cols_finales].copy()
 
-    # --- CORRECCIÓN CLAVE ---
-    # 1. Forzar columnas numéricas a tipo numérico real (no string)
+    # --- CORRECCIÓN FINAL DE TIPOS ---
+    # Convertir numéricos reales para evitar apostrofe
     cols_numericas = ['latitude', 'longitude', 'Cantidad de personas en situación de calle observadas']
-    
     for col in cols_numericas:
         if col in df_final.columns:
-            # to_numeric convierte a float/int. Si falla, pone NaN.
             df_final[col] = pd.to_numeric(df_final[col], errors='coerce')
 
-    # 2. Localizacion: Intentar convertir a número si es posible (para que "5" sea número), 
-    # pero dejar "AD" o "Fuera de Zona" como texto.
-    if 'Localizacion' in df_final.columns:
-         df_final['Localizacion'] = pd.to_numeric(df_final['Localizacion'], errors='ignore')
-
-    # 3. Reemplazar NaN con None (Python None = Celda Vacia en Sheets)
-    # Esto evita tener que convertir todo a string
+    # Rellenar vacíos con None (para que gspread no ponga apostrofes en vacios)
     df_final = df_final.where(pd.notnull(df_final), None)
 
     # Carga
     if len(ids_existentes) == 0:
         sheet.clear()
-        # update requiere lista de listas, None se maneja bien
         sheet.update([df_final.columns.values.tolist()] + df_final.values.tolist())
     else:
         encabezados = sheet.row_values(1)
-        # Reindexamos
         df_append = df_final.reindex(columns=encabezados)
-        # Volvemos a limpiar NaN generados por reindex
         df_append = df_append.where(pd.notnull(df_append), None)
-        
         sheet.append_rows(df_append.values.tolist())
 
-    print(">>> ÉXITO: Carga completada sin apostrofes. <<<")
+    print(">>> ÉXITO: Carga completada. <<<")
