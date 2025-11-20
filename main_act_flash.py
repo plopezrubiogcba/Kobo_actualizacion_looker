@@ -55,9 +55,6 @@ def asignar_turno(fecha):
     else: return None
 
 def clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf):
-    """
-    Clasifica los puntos en 'AD' (Anillo Digital) o por número de comuna.
-    """
     print("--- Iniciando clasificación de localización ---")
     
     puntos_gdf = puntos_gdf.to_crs("EPSG:4326")
@@ -69,6 +66,7 @@ def clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf):
     # 1. Anillo Digital (AD)
     puntos_en_anillo = gpd.sjoin(puntos_gdf, anillo_gdf, how="inner", predicate='within')
     if not puntos_en_anillo.empty:
+        print(f"   -> {len(puntos_en_anillo)} puntos en Anillo Digital (AD).")
         puntos_gdf.loc[puntos_en_anillo.index, 'Localizacion'] = 'AD'
 
     # 2. Comunas (Resto)
@@ -79,7 +77,6 @@ def clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf):
         puntos_en_comunas = gpd.sjoin(puntos_para_comunas, comunas_gdf, how="inner", predicate='within')
         
         if not puntos_en_comunas.empty:
-            # Buscar columna dinámica
             comuna_col_found = None
             possible_cols = ['comunas', 'COMUNAS', 'comuna', 'COMUNA', 'NAM', 'ID', 'OBJETO', 'barrio']
             
@@ -89,10 +86,14 @@ def clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf):
                     break
             
             if comuna_col_found:
+                print(f"   -> {len(puntos_en_comunas)} puntos en Comunas (Columna: '{comuna_col_found}').")
                 valores = puntos_en_comunas[comuna_col_found].astype(str)
                 valores = valores.str.replace(r'\.0$', '', regex=True)
                 puntos_gdf.loc[puntos_en_comunas.index, 'Localizacion'] = valores
-    
+            else:
+                print(f"   ⚠️ Error: No se encontró columna de nombre en SHP. Disponibles: {comunas_gdf.columns}")
+
+    print("--- Clasificación finalizada ---")
     return puntos_gdf['Localizacion']
 
 def asignar_recorrido(gdf, poligonos):
@@ -107,10 +108,8 @@ def asignar_recorrido(gdf, poligonos):
 def procesar_datos_geoespaciales_total(df_kobo):
     print("Separando coordenadas latitud/longitud/altitud/precisión...")
     if 'geo_ref/geo_punto' in df_kobo.columns:
-        # Kobo devuelve "lat lon alt prec" separados por espacio
         split_coords = df_kobo['geo_ref/geo_punto'].astype(str).str.split(' ', expand=True)
         
-        # Asignaciones seguras (si faltan datos, pone NaN)
         if split_coords.shape[1] >= 1:
             df_kobo['latitude'] = pd.to_numeric(split_coords[0], errors='coerce')
         if split_coords.shape[1] >= 2:
@@ -126,7 +125,6 @@ def procesar_datos_geoespaciales_total(df_kobo):
             df_kobo['_Georreferenciación del punto_precision'] = 0
     
     df_kobo['start'] = pd.to_datetime(df_kobo['start'])
-    # Limpieza vital: Solo filas con geo válida
     df_kobo.dropna(subset=['latitude', 'longitude'], inplace=True)
     
     df_kobo['Turno'] = df_kobo['start'].apply(asignar_turno)
@@ -165,9 +163,8 @@ def procesar_datos_geoespaciales_total(df_kobo):
 # --- 4. MAIN EJECUCIÓN ---
 
 if __name__ == '__main__':
-    print(">>> INICIO DE PROCESO INTEGRADO (ESTRICTO + ORDEN) <<<")
+    print(">>> INICIO DE PROCESO INTEGRADO (ESTRICTO + JSON COMPLIANT) <<<")
     
-    # 1. KOBO
     print("1. Descargando Kobo Completo...")
     headers = {"Authorization": f"Token {TOKEN_KOBO}"}
     try:
@@ -180,13 +177,10 @@ if __name__ == '__main__':
 
     if df_raw.empty: sys.exit(0)
 
-    # 2. PROCESAR GEOESPACIALMENTE
     print("2. Procesando lógica geoespacial...")
     df_procesado = procesar_datos_geoespaciales_total(df_raw)
-    
     if df_procesado is None or df_procesado.empty: sys.exit(1)
 
-    # 3. GOOGLE SHEETS & DUPLICADOS
     print("3. Verificando duplicados...")
     scope = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets',
              "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
@@ -206,7 +200,6 @@ if __name__ == '__main__':
     except:
         ids_existentes = set()
     
-    # 4. FILTRAR NUEVOS
     if '_uuid' in df_procesado.columns:
         df_procesado['_uuid'] = df_procesado['_uuid'].astype(str)
         df_nuevos_final = df_procesado[~df_procesado['_uuid'].isin(ids_existentes)].copy()
@@ -219,76 +212,48 @@ if __name__ == '__main__':
 
     print(f"   > Registros NUEVOS a subir: {len(df_nuevos_final)}")
 
-    # 5. FORMATEO ESTRICTO
     print("4. Aplicando formatos estrictos...")
-    
     df_nuevos_final['hora_start'] = df_nuevos_final['start'].dt.strftime('%H:%M:%S')
     df_nuevos_final['start'] = df_nuevos_final['start'].dt.strftime('%Y-%m-%d')
 
-    # Mapeo de nombres
     rename_map = {
         'geo_ref/geo_punto': 'Georreferenciación del punto',
         'datos_per/cant_pers': 'Cantidad de personas en situación de calle observadas',
         'caracteristicas_puntos/caracteristicas_observada': 'Características observables del punto',
         'caracteristicas_puntos/estructura': 'estructura',
-        'caracteristicas_puntos/colchon': 'colchon', # Si existe
+        'caracteristicas_puntos/colchon': 'colchon', 
         'caracteristicas_puntos/NNyA_observa': 'Se observan niños/as en el punto'
     }
     df_nuevos_final.rename(columns=rename_map, inplace=True)
 
-    # LISTA EXACTA DE COLUMNAS SOLICITADA
     columnas_deseadas = [
-        'Turno', 
-        'start', 
-        'hora_start', 
-        'end', 
-        'today', 
-        'username', 
-        'deviceid',
-        'Georreferenciación del punto', 
-        'latitude', 
-        'longitude',
-        '_Georreferenciación del punto_altitude', 
-        '_Georreferenciación del punto_precision',
+        'Turno', 'start', 'hora_start', 'end', 'today', 'username', 'deviceid',
+        'Georreferenciación del punto', 'latitude', 'longitude',
+        '_Georreferenciación del punto_altitude', '_Georreferenciación del punto_precision',
         'Cantidad de personas en situación de calle observadas',
-        'Características observables del punto', 
-        'estructura', 
-        'colchon',
+        'Características observables del punto', 'estructura', 'colchon',
         'Características observables del punto/Basura, ropa, bolsos, etc',
         'Características observables del punto/No se observan cosas',
-        'Se observan niños/as en el punto', 
-        '_id', 
-        '_uuid', 
-        '_submission_time', 
-        '_validation_status', 
-        '_notes', 
-        '_status', 
-        '_submitted_by', 
-        '__version__', 
-        '_tags', 
-        '_index', 
-        'Poligono', 
-        'Localizacion'
+        'Se observan niños/as en el punto', '_id', '_uuid', '_submission_time', 
+        '_validation_status', '_notes', '_status', '_submitted_by', '__version__', 
+        '_tags', '_index', 'Poligono', 'Localizacion'
     ]
     
-    # Forzar que el DataFrame tenga EXACTAMENTE estas columnas
-    # Si una columna no existe en los datos, se crea con NaN (luego se limpia)
     df_final = df_nuevos_final.reindex(columns=columnas_deseadas)
 
-    # B. NUMÉRICOS
+    # FORMATO: Numéricos
     cols_float = ['latitude', 'longitude', '_Georreferenciación del punto_altitude', '_Georreferenciación del punto_precision']
     for col in cols_float:
         if col in df_final.columns:
             df_final[col] = pd.to_numeric(df_final[col], errors='coerce')
 
-    # C. ENTEROS (Solo numéricos reales)
-    # Nota: Sacamos 'Características...' porque suele ser texto y daba 0
-    cols_enteros = ['Cantidad de personas en situación de calle observadas', 'colchon']
+    # FORMATO: Enteros
+    cols_enteros = ['Cantidad de personas en situación de calle observadas']
     for col_cant in cols_enteros:
         if col_cant in df_final.columns:
             df_final[col_cant] = pd.to_numeric(df_final[col_cant], errors='coerce').fillna(0).astype(int)
 
-    # D. LOCALIZACIÓN
+    # FORMATO: Localización
     if 'Localizacion' in df_final.columns:
         def limpiar_localizacion(valor):
             try:
@@ -297,7 +262,9 @@ if __name__ == '__main__':
                 return valor
         df_final['Localizacion'] = df_final['Localizacion'].apply(limpiar_localizacion)
 
-    # E. LIMPIEZA LISTAS/DICT (Error 400)
+    # LIMPIEZA CRÍTICA PARA JSON (Evita error 'Out of range float values' y 'list_value')
+    
+    # 1. Convertir estructuras complejas (listas/dicts) a string
     def clean_complex_types(val):
         if isinstance(val, (list, dict)):
             return str(val)
@@ -306,22 +273,30 @@ if __name__ == '__main__':
     for col in df_final.columns:
         df_final[col] = df_final[col].apply(clean_complex_types)
 
-    # F. LIMPIEZA VACÍOS (NaN -> None)
+    # 2. Reemplazar Infinito por NaN (JSON no soporta Inf)
+    df_final = df_final.replace([np.inf, -np.inf], np.nan)
+
+    # 3. Convertir DF a object para permitir None
+    # Esto es CLAVE: evita que Pandas fuerce None a NaN en columnas float
+    df_final = df_final.astype(object)
+
+    # 4. Reemplazar NaN con None (Esto envía 'null' limpio a Google Sheets)
     df_final = df_final.where(pd.notnull(df_final), None)
 
-    # 6. CARGA
     print("5. Subiendo a Google Sheets...")
     if len(ids_existentes) == 0:
         sheet.clear()
         sheet.update(values=[df_final.columns.values.tolist()] + df_final.values.tolist(), value_input_option='USER_ENTERED')
     else:
-        # Aseguramos que el orden coincida con el Sheet si ya tiene headers
         headers_sheet = sheet.row_values(1)
-        if not headers_sheet: # Si por alguna razón está vacía pero el script pensó que no
-             headers_sheet = columnas_deseadas
+        if not headers_sheet: headers_sheet = columnas_deseadas
         
+        # Reindexar para asegurar orden
         df_append = df_final.reindex(columns=headers_sheet)
+        # Repetir limpieza en el DF a appendear (por si reindex genera nuevos NaNs)
+        df_append = df_append.astype(object)
         df_append = df_append.where(pd.notnull(df_append), None)
+        
         sheet.append_rows(values=df_append.values.tolist(), value_input_option='USER_ENTERED')
 
-    print(">>> ÉXITO: Carga completada y alineada. <<<")
+    print(">>> ÉXITO: Carga completada. <<<")
