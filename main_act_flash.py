@@ -59,7 +59,6 @@ def asignar_turno(fecha):
 def clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf):
     """
     Clasifica los puntos en 'AD' (Anillo Digital) o por número de comuna.
-    Devuelve valores limpios para evitar errores de tipo.
     """
     print("--- Iniciando clasificación de localización ---")
     
@@ -95,8 +94,7 @@ def clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf):
             if comuna_col_found:
                 print(f"   -> {len(puntos_en_comunas)} puntos en Comunas (Columna: '{comuna_col_found}').")
                 
-                # Extraer valores sin forzar conversión numérica todavía para evitar crashes
-                # Simplemente limpiamos el .0 si es string
+                # Extraer valores y limpiar .0 si existe (ej "12.0" -> "12")
                 valores = puntos_en_comunas[comuna_col_found].astype(str)
                 valores = valores.str.replace(r'\.0$', '', regex=True)
                 
@@ -219,7 +217,7 @@ if __name__ == '__main__':
     # 5. FORMATEO ESTRICTO (Tipos de Datos para Looker)
     print("4. Aplicando formatos estrictos...")
     
-    # A. FECHAS (Strings limpios)
+    # A. FECHAS (Strings limpios YYYY-MM-DD)
     df_nuevos_final['hora_start'] = df_nuevos_final['start'].dt.strftime('%H:%M:%S')
     df_nuevos_final['start'] = df_nuevos_final['start'].dt.strftime('%Y-%m-%d')
 
@@ -245,35 +243,42 @@ if __name__ == '__main__':
     cols_finales = [c for c in columnas_deseadas if c in df_nuevos_final.columns]
     df_final = df_nuevos_final[cols_finales].copy()
 
-    # B. NUMÉRICOS (Sin apostrofe)
-    # Latitude/Longitude: Float
+    # B. NUMÉRICOS (Sin apostrofe, como Float/Int nativo de Python)
     for col in ['latitude', 'longitude']:
         if col in df_final.columns:
             df_final[col] = pd.to_numeric(df_final[col], errors='coerce')
 
-    # Cantidad de Personas: Integer
+    # C. ENTEROS (Cantidad de Personas)
     col_cant = 'Cantidad de personas en situación de calle observadas'
     if col_cant in df_final.columns:
-        # Convertir a numérico, llenar NaN con 0 (o dejarlo si prefieres), pasar a int
         df_final[col_cant] = pd.to_numeric(df_final[col_cant], errors='coerce').fillna(0).astype(int)
 
-    # C. LOCALIZACIÓN (Inteligente: Int si es numero, String si es texto como "AD")
-    # Iteramos para manejar tipos mixtos sin romper con astype
+    # D. LOCALIZACIÓN (Inteligente: Int si es posible, String si es texto)
     if 'Localizacion' in df_final.columns:
         def limpiar_localizacion(valor):
             try:
-                # Si es "AD" o texto, fallará float() -> se queda como string
-                # Si es "12" o "12.0", se convierte a float -> int -> return int puro
-                num = float(valor)
-                return int(num)
+                # Si es numero "12" o "12.0", lo pasamos a int puro (12)
+                return int(float(valor))
             except (ValueError, TypeError):
-                return valor # Retorna "AD", "Fuera de Zona" o lo que sea texto
+                # Si es texto "AD", "Fuera de Zona", se queda como texto
+                return valor
         
         df_final['Localizacion'] = df_final['Localizacion'].apply(limpiar_localizacion)
 
-    # D. LIMPIEZA FINAL PARA GSPREAD
-    # Reemplaza NaN con None (Python) que se traduce a celda vacía en Sheets
-    # NO HACEMOS astype(str) GENERAL AQUÍ, ESO CAUSABA EL ERROR DEL APOSTROFE
+    # E. CORRECCIÓN ERROR 400 (LISTAS/DICT)
+    # Convertir columnas complejas (listas/dicts) a string para que gspread no falle
+    # Esto arregla el error "Invalid values[1][16]: list_value"
+    def clean_complex_types(val):
+        if isinstance(val, (list, dict)):
+            return str(val)
+        return val
+
+    # Aplicamos limpieza a todo el dataframe (seguro y efectivo)
+    # (Manteniendo los números intactos porque ya son int/float y no list)
+    for col in df_final.columns:
+        df_final[col] = df_final[col].apply(clean_complex_types)
+
+    # F. LIMPIEZA FINAL (NaN -> None)
     df_final = df_final.where(pd.notnull(df_final), None)
 
     # 6. CARGA
@@ -283,10 +288,10 @@ if __name__ == '__main__':
         sheet.update([df_final.columns.values.tolist()] + df_final.values.tolist())
     else:
         encabezados = sheet.row_values(1)
-        # Reindex puede crear NaNs nuevos, volvemos a limpiar
         df_append = df_final.reindex(columns=encabezados)
         df_append = df_append.where(pd.notnull(df_append), None)
         
         sheet.append_rows(df_append.values.tolist())
 
     print(">>> ÉXITO: Carga completada y formateada. <<<")
+
