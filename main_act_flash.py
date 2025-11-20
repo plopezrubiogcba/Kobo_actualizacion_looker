@@ -40,8 +40,6 @@ for root, dirs, files in os.walk(BASE_DIR):
 
 if not RUTA_KML_ANILLO or not RUTA_SHP_COMUNAS:
     print("\n❌ ERROR CRÍTICO: Faltan archivos en el GitHub.")
-    print(f"   KML: {'OK' if RUTA_KML_ANILLO else 'FALTA'}")
-    print(f"   SHP: {'OK' if RUTA_SHP_COMUNAS else 'FALTA'}")
     sys.exit(1)
 
 
@@ -71,7 +69,6 @@ def clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf):
     # 1. Anillo Digital (AD)
     puntos_en_anillo = gpd.sjoin(puntos_gdf, anillo_gdf, how="inner", predicate='within')
     if not puntos_en_anillo.empty:
-        print(f"   -> {len(puntos_en_anillo)} puntos en Anillo Digital (AD).")
         puntos_gdf.loc[puntos_en_anillo.index, 'Localizacion'] = 'AD'
 
     # 2. Comunas (Resto)
@@ -92,17 +89,10 @@ def clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf):
                     break
             
             if comuna_col_found:
-                print(f"   -> {len(puntos_en_comunas)} puntos en Comunas (Columna: '{comuna_col_found}').")
-                
-                # Extraer valores y limpiar .0 si existe (ej "12.0" -> "12")
                 valores = puntos_en_comunas[comuna_col_found].astype(str)
                 valores = valores.str.replace(r'\.0$', '', regex=True)
-                
                 puntos_gdf.loc[puntos_en_comunas.index, 'Localizacion'] = valores
-            else:
-                print(f"   ⚠️ Error: No se encontró columna de nombre en SHP. Disponibles: {comunas_gdf.columns}")
-
-    print("--- Clasificación finalizada ---")
+    
     return puntos_gdf['Localizacion']
 
 def asignar_recorrido(gdf, poligonos):
@@ -115,15 +105,30 @@ def asignar_recorrido(gdf, poligonos):
     return resultado
 
 def procesar_datos_geoespaciales_total(df_kobo):
-    print("Separando coordenadas latitud/longitud...")
+    print("Separando coordenadas latitud/longitud/altitud/precisión...")
     if 'geo_ref/geo_punto' in df_kobo.columns:
+        # Kobo devuelve "lat lon alt prec" separados por espacio
         split_coords = df_kobo['geo_ref/geo_punto'].astype(str).str.split(' ', expand=True)
-        if split_coords.shape[1] >= 2:
+        
+        # Asignaciones seguras (si faltan datos, pone NaN)
+        if split_coords.shape[1] >= 1:
             df_kobo['latitude'] = pd.to_numeric(split_coords[0], errors='coerce')
+        if split_coords.shape[1] >= 2:
             df_kobo['longitude'] = pd.to_numeric(split_coords[1], errors='coerce')
+        if split_coords.shape[1] >= 3:
+            df_kobo['_Georreferenciación del punto_altitude'] = pd.to_numeric(split_coords[2], errors='coerce')
+        else:
+            df_kobo['_Georreferenciación del punto_altitude'] = 0
+        
+        if split_coords.shape[1] >= 4:
+            df_kobo['_Georreferenciación del punto_precision'] = pd.to_numeric(split_coords[3], errors='coerce')
+        else:
+            df_kobo['_Georreferenciación del punto_precision'] = 0
     
     df_kobo['start'] = pd.to_datetime(df_kobo['start'])
+    # Limpieza vital: Solo filas con geo válida
     df_kobo.dropna(subset=['latitude', 'longitude'], inplace=True)
+    
     df_kobo['Turno'] = df_kobo['start'].apply(asignar_turno)
 
     puntos_gdf = gpd.GeoDataFrame(
@@ -160,7 +165,7 @@ def procesar_datos_geoespaciales_total(df_kobo):
 # --- 4. MAIN EJECUCIÓN ---
 
 if __name__ == '__main__':
-    print(">>> INICIO DE PROCESO INTEGRADO (ESTRICTO) <<<")
+    print(">>> INICIO DE PROCESO INTEGRADO (ESTRICTO + ORDEN) <<<")
     
     # 1. KOBO
     print("1. Descargando Kobo Completo...")
@@ -214,84 +219,109 @@ if __name__ == '__main__':
 
     print(f"   > Registros NUEVOS a subir: {len(df_nuevos_final)}")
 
-    # 5. FORMATEO ESTRICTO (Tipos de Datos para Looker)
+    # 5. FORMATEO ESTRICTO
     print("4. Aplicando formatos estrictos...")
     
-    # A. FECHAS (Strings limpios YYYY-MM-DD)
     df_nuevos_final['hora_start'] = df_nuevos_final['start'].dt.strftime('%H:%M:%S')
     df_nuevos_final['start'] = df_nuevos_final['start'].dt.strftime('%Y-%m-%d')
 
+    # Mapeo de nombres
     rename_map = {
         'geo_ref/geo_punto': 'Georreferenciación del punto',
         'datos_per/cant_pers': 'Cantidad de personas en situación de calle observadas',
         'caracteristicas_puntos/caracteristicas_observada': 'Características observables del punto',
         'caracteristicas_puntos/estructura': 'estructura',
+        'caracteristicas_puntos/colchon': 'colchon', # Si existe
         'caracteristicas_puntos/NNyA_observa': 'Se observan niños/as en el punto'
     }
     df_nuevos_final.rename(columns=rename_map, inplace=True)
 
+    # LISTA EXACTA DE COLUMNAS SOLICITADA
     columnas_deseadas = [
-            'Turno', 'start', 'hora_start', 'end', 'today', 'username', 'deviceid', 
-            'Georreferenciación del punto', 'latitude', 'longitude', 
-            'Cantidad de personas en situación de calle observadas', 
-            'Características observables del punto', 
-            'Se observan niños/as en el punto', '_id', '_uuid', '_submission_time', 
-            '_validation_status', '_notes', '_status', '_submitted_by', '__version__', 
-            '_tags', 'Poligono', 'Localizacion'
+        'Turno', 
+        'start', 
+        'hora_start', 
+        'end', 
+        'today', 
+        'username', 
+        'deviceid',
+        'Georreferenciación del punto', 
+        'latitude', 
+        'longitude',
+        '_Georreferenciación del punto_altitude', 
+        '_Georreferenciación del punto_precision',
+        'Cantidad de personas en situación de calle observadas',
+        'Características observables del punto', 
+        'estructura', 
+        'colchon',
+        'Características observables del punto/Basura, ropa, bolsos, etc',
+        'Características observables del punto/No se observan cosas',
+        'Se observan niños/as en el punto', 
+        '_id', 
+        '_uuid', 
+        '_submission_time', 
+        '_validation_status', 
+        '_notes', 
+        '_status', 
+        '_submitted_by', 
+        '__version__', 
+        '_tags', 
+        '_index', 
+        'Poligono', 
+        'Localizacion'
     ]
     
-    cols_finales = [c for c in columnas_deseadas if c in df_nuevos_final.columns]
-    df_final = df_nuevos_final[cols_finales].copy()
+    # Forzar que el DataFrame tenga EXACTAMENTE estas columnas
+    # Si una columna no existe en los datos, se crea con NaN (luego se limpia)
+    df_final = df_nuevos_final.reindex(columns=columnas_deseadas)
 
-    # B. NUMÉRICOS (Sin apostrofe, como Float/Int nativo de Python)
-    for col in ['latitude', 'longitude']:
+    # B. NUMÉRICOS
+    cols_float = ['latitude', 'longitude', '_Georreferenciación del punto_altitude', '_Georreferenciación del punto_precision']
+    for col in cols_float:
         if col in df_final.columns:
             df_final[col] = pd.to_numeric(df_final[col], errors='coerce')
 
-    # C. ENTEROS (Cantidad de Personas)
-    col_cant = 'Cantidad de personas en situación de calle observadas'
-    if col_cant in df_final.columns:
-        df_final[col_cant] = pd.to_numeric(df_final[col_cant], errors='coerce').fillna(0).astype(int)
+    # C. ENTEROS (Solo numéricos reales)
+    # Nota: Sacamos 'Características...' porque suele ser texto y daba 0
+    cols_enteros = ['Cantidad de personas en situación de calle observadas', 'colchon']
+    for col_cant in cols_enteros:
+        if col_cant in df_final.columns:
+            df_final[col_cant] = pd.to_numeric(df_final[col_cant], errors='coerce').fillna(0).astype(int)
 
-    # D. LOCALIZACIÓN (Inteligente: Int si es posible, String si es texto)
+    # D. LOCALIZACIÓN
     if 'Localizacion' in df_final.columns:
         def limpiar_localizacion(valor):
             try:
-                # Si es numero "12" o "12.0", lo pasamos a int puro (12)
                 return int(float(valor))
             except (ValueError, TypeError):
-                # Si es texto "AD", "Fuera de Zona", se queda como texto
                 return valor
-        
         df_final['Localizacion'] = df_final['Localizacion'].apply(limpiar_localizacion)
 
-    # E. CORRECCIÓN ERROR 400 (LISTAS/DICT)
-    # Convertir columnas complejas (listas/dicts) a string para que gspread no falle
-    # Esto arregla el error "Invalid values[1][16]: list_value"
+    # E. LIMPIEZA LISTAS/DICT (Error 400)
     def clean_complex_types(val):
         if isinstance(val, (list, dict)):
             return str(val)
         return val
 
-    # Aplicamos limpieza a todo el dataframe (seguro y efectivo)
-    # (Manteniendo los números intactos porque ya son int/float y no list)
     for col in df_final.columns:
         df_final[col] = df_final[col].apply(clean_complex_types)
 
-    # F. LIMPIEZA FINAL (NaN -> None)
+    # F. LIMPIEZA VACÍOS (NaN -> None)
     df_final = df_final.where(pd.notnull(df_final), None)
 
     # 6. CARGA
     print("5. Subiendo a Google Sheets...")
     if len(ids_existentes) == 0:
         sheet.clear()
-        sheet.update([df_final.columns.values.tolist()] + df_final.values.tolist())
+        sheet.update(values=[df_final.columns.values.tolist()] + df_final.values.tolist(), value_input_option='USER_ENTERED')
     else:
-        encabezados = sheet.row_values(1)
-        df_append = df_final.reindex(columns=encabezados)
-        df_append = df_append.where(pd.notnull(df_append), None)
+        # Aseguramos que el orden coincida con el Sheet si ya tiene headers
+        headers_sheet = sheet.row_values(1)
+        if not headers_sheet: # Si por alguna razón está vacía pero el script pensó que no
+             headers_sheet = columnas_deseadas
         
-        sheet.append_rows(df_append.values.tolist())
+        df_append = df_final.reindex(columns=headers_sheet)
+        df_append = df_append.where(pd.notnull(df_append), None)
+        sheet.append_rows(values=df_append.values.tolist(), value_input_option='USER_ENTERED')
 
-    print(">>> ÉXITO: Carga completada y formateada. <<<")
-
+    print(">>> ÉXITO: Carga completada y alineada. <<<")
