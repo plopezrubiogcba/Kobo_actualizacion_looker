@@ -39,12 +39,15 @@ for root, dirs, files in os.walk(BASE_DIR):
             RUTA_SHP_COMUNAS = os.path.join(root, file)
             print(f"   ✅ SHP encontrado: {RUTA_SHP_COMUNAS}")
 
+# Validación estricta
 if not RUTA_KML_ANILLO or not RUTA_SHP_COMUNAS:
     print("\n❌ ERROR CRÍTICO: Faltan archivos en el GitHub.")
+    print(f"   KML: {'OK' if RUTA_KML_ANILLO else 'FALTA'}")
+    print(f"   SHP: {'OK' if RUTA_SHP_COMUNAS else 'FALTA'}")
     sys.exit(1)
 
 
-# --- 3. FUNCIONES DE LÓGICA DE NEGOCIO ---
+# --- 3. FUNCIONES DE LÓGICA DE NEGOCIO (RESTAURADAS) ---
 
 def asignar_turno(fecha):
     if pd.isnull(fecha): return None
@@ -56,39 +59,61 @@ def asignar_turno(fecha):
     else: return None
 
 def clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf):
-    print("--- Clasificando Localización ---")
+    """
+    Clasifica los puntos en 'AD' (Anillo Digital) o por número de comuna (1-15).
+    La clasificación del Anillo Digital tiene prioridad.
+    """
+    print("--- Iniciando clasificación de localización ---")
+    
+    # Asegurar CRS (Sistema de coordenadas mundial)
     puntos_gdf = puntos_gdf.to_crs("EPSG:4326")
     anillo_gdf = anillo_gdf.to_crs("EPSG:4326")
     comunas_gdf = comunas_gdf.to_crs("EPSG:4326")
 
+    # Inicializar columna
     puntos_gdf['Localizacion'] = 'Fuera de Zona'
 
-    # Debug: Ver qué columnas tiene el SHP para entender por qué falla
-    print(f"   ℹ️ Columnas detectadas en SHP Comunas: {list(comunas_gdf.columns)}")
-
-    # A. Prioridad: Anillo Digital
+    # 1. Clasificar por Anillo Digital (AD) - Prioridad 1
     puntos_en_anillo = gpd.sjoin(puntos_gdf, anillo_gdf, how="inner", predicate='within')
     if not puntos_en_anillo.empty:
+        print(f"   -> {len(puntos_en_anillo)} puntos en Anillo Digital (AD).")
         puntos_gdf.loc[puntos_en_anillo.index, 'Localizacion'] = 'AD'
 
-    # B. Resto: Comunas
+    # 2. Clasificar por Comuna (Resto)
+    # Filtramos solo los que NO fueron clasificados como AD
     puntos_fuera_anillo_idx = puntos_gdf[puntos_gdf['Localizacion'] != 'AD'].index
     puntos_para_comunas = puntos_gdf.loc[puntos_fuera_anillo_idx]
 
     if not puntos_para_comunas.empty:
         puntos_en_comunas = gpd.sjoin(puntos_para_comunas, comunas_gdf, how="inner", predicate='within')
+        
         if not puntos_en_comunas.empty:
-            # Lista ampliada de posibles nombres de columna
-            posibles_nombres = ['COMUNAS', 'comunas', 'DOM_COMUNA', 'NAM', 'barrio', 'BARRIO', 'COMMUNE', 'ID', 'objeto']
-            col_comuna = next((c for c in posibles_nombres if c in puntos_en_comunas.columns), None)
+            # Buscar la columna correcta dinámicamente (Tu lógica original)
+            comuna_col_found = None
+            possible_cols = ['comunas', 'COMUNAS', 'comuna', 'COMUNA', 'NAM', 'ID', 'OBJETO']
             
-            if col_comuna:
-                print(f"   ✅ Cruzando datos usando columna: {col_comuna}")
-                valores = puntos_en_comunas[col_comuna].fillna(0).astype(str)
-                puntos_gdf.loc[puntos_en_comunas.index, 'Localizacion'] = valores
+            for col in possible_cols:
+                if col in puntos_en_comunas.columns:
+                    comuna_col_found = col
+                    break
+            
+            if comuna_col_found:
+                print(f"   -> {len(puntos_en_comunas)} puntos en Comunas (Columna: '{comuna_col_found}').")
+                
+                # Extraer valores
+                valores_crudos = puntos_en_comunas[comuna_col_found]
+                
+                # Limpieza: Intentar convertir a entero para evitar "1.0"
+                try:
+                    valores_limpios = valores_crudos.fillna(0).astype(float).astype(int).astype(str)
+                except:
+                    valores_limpios = valores_crudos.astype(str)
+
+                puntos_gdf.loc[puntos_en_comunas.index, 'Localizacion'] = valores_limpios
             else:
-                print(f"   ⚠️ ADVERTENCIA: No encontré ninguna columna conocida en {list(comunas_gdf.columns)}")
-    
+                print(f"   ⚠️ Error: No se encontró columna de nombre en SHP. Disponibles: {comunas_gdf.columns}")
+
+    print("--- Clasificación finalizada ---")
     return puntos_gdf['Localizacion']
 
 def asignar_recorrido(gdf, poligonos):
@@ -100,7 +125,9 @@ def asignar_recorrido(gdf, poligonos):
             resultado.loc[dentro] = nombre
     return resultado
 
-def procesar_datos_geoespaciales(df_kobo):
+def procesar_datos_geoespaciales_total(df_kobo):
+    """Procesa TODO el dataframe descargado para asegurar consistencia."""
+    
     # 1. Parseo Lat/Lon
     print("Separando coordenadas latitud/longitud...")
     if 'geo_ref/geo_punto' in df_kobo.columns:
@@ -110,7 +137,9 @@ def procesar_datos_geoespaciales(df_kobo):
             df_kobo['longitude'] = pd.to_numeric(split_coords[1], errors='coerce')
     
     df_kobo['start'] = pd.to_datetime(df_kobo['start'])
+    # Limpieza vital: Solo filas con geo válida
     df_kobo.dropna(subset=['latitude', 'longitude'], inplace=True)
+    
     df_kobo['Turno'] = df_kobo['start'].apply(asignar_turno)
 
     # Crear GeoDataFrame
@@ -122,7 +151,7 @@ def procesar_datos_geoespaciales(df_kobo):
 
     # --- CARGA DE CAPAS ---
     try:
-        # KML
+        # KML (Intentamos capa específica primero, luego general)
         try:
             anillo_gdf = gpd.read_file(RUTA_KML_ANILLO, layer='Nuevo Anillo Digital', driver='KML')
         except:
@@ -144,6 +173,7 @@ def procesar_datos_geoespaciales(df_kobo):
         'Recorrido C': Polygon([(-58.400944, -34.594168), (-58.395365, -34.587137), (-58.389185, -34.584593),(-58.398455, -34.580212), (-58.407295, -34.581837), (-58.404592, -34.593108),(-58.41017, -34.588232), (-58.400944, -34.594168)])
     }
 
+    # Ejecutar TU lógica de clasificación
     df_kobo['Localizacion'] = clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf)
     df_kobo['Poligono'] = asignar_recorrido(puntos_gdf, poligonos_recorrido)
 
@@ -153,35 +183,34 @@ def procesar_datos_geoespaciales(df_kobo):
 # --- 4. MAIN EJECUCIÓN ---
 
 if __name__ == '__main__':
-    print(">>> INICIO DE PROCESO INTEGRADO (TODO -> FILTRO) <<<")
+    print(">>> INICIO DE PROCESO INTEGRADO (ESTRATEGIA: PROCESAR TODO -> FILTRAR NUEVOS) <<<")
     
-    # 1. Descargar KOBO (TODO)
+    # 1. Descargar KOBO (COMPLETO)
     print("1. Descargando Kobo Completo...")
     headers = {"Authorization": f"Token {TOKEN_KOBO}"}
     try:
         resp = requests.get(URL_KOBO, headers=headers)
         resp.raise_for_status()
         df_raw = pd.json_normalize(resp.json()['results'])
-        print(f"   > Total registros descargados: {len(df_raw)}")
+        print(f"   > Total registros Kobo: {len(df_raw)}")
     except Exception as e:
         print(f"Error Kobo: {e}")
         sys.exit(1)
 
     if df_raw.empty:
-        print("Kobo vacío. Fin.")
+        print("Kobo vacío.")
         sys.exit(0)
 
-    # 2. PROCESAR TODO (Geoespacial)
-    # Aquí procesamos los 6000+ registros. Es más lento pero asegura consistencia.
-    print("2. Procesando Geoespacialmente TODOS los registros...")
-    df_procesado = procesar_datos_geoespaciales(df_raw)
+    # 2. PROCESAR TODO EL DATASET (Para asegurar que la geo-clasificación tiene contexto completo)
+    print("2. Procesando lógica geoespacial...")
+    df_procesado = procesar_datos_geoespaciales_total(df_raw)
     
     if df_procesado is None or df_procesado.empty:
-        print("Error procesando datos.")
+        print("Error: DataFrame vacío tras procesamiento geoespacial.")
         sys.exit(1)
 
-    # 3. Conectar a Google Sheets y Filtrar Nuevos
-    print("3. Conectando a Google Sheets para verificar duplicados...")
+    # 3. Conectar a Google Sheets y Ver qué existe
+    print("3. Verificando duplicados en Google Sheets...")
     scope = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets',
              "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
 
@@ -200,10 +229,10 @@ if __name__ == '__main__':
     except:
         ids_existentes = set()
     
-    print(f"   > Registros ya en Sheet: {len(ids_existentes)}")
+    print(f"   > IDs ya existentes en Sheet: {len(ids_existentes)}")
 
-    # 4. Filtrar: Nos quedamos solo con los que NO están en el Sheet
-    # Aseguramos que _uuid sea string
+    # 4. Filtrar: Dejar solo lo que NO está en el Sheet
+    # Convertir _uuid a string para comparación segura
     if '_uuid' in df_procesado.columns:
         df_procesado['_uuid'] = df_procesado['_uuid'].astype(str)
         df_nuevos_final = df_procesado[~df_procesado['_uuid'].isin(ids_existentes)].copy()
@@ -214,13 +243,14 @@ if __name__ == '__main__':
         print(">>> Todo actualizado. No hay registros nuevos para subir. <<<")
         sys.exit(0)
 
-    print(f"   > Registros realmente NUEVOS a subir: {len(df_nuevos_final)}")
+    print(f"   > Registros NUEVOS a subir: {len(df_nuevos_final)}")
 
     # 5. Formatear y Subir
-    print("4. Formateando y Subiendo...")
+    print("4. Subiendo datos...")
     df_nuevos_final['hora_start'] = df_nuevos_final['start'].dt.strftime('%H:%M:%S')
     df_nuevos_final['start'] = df_nuevos_final['start'].dt.strftime('%Y-%m-%d')
 
+    # Renombrar
     rename_map = {
         'geo_ref/geo_punto': 'Georreferenciación del punto',
         'datos_per/cant_pers': 'Cantidad de personas en situación de calle observadas',
@@ -230,6 +260,7 @@ if __name__ == '__main__':
     }
     df_nuevos_final.rename(columns=rename_map, inplace=True)
 
+    # Columnas finales
     columnas_deseadas = [
             'Turno', 'start', 'hora_start', 'end', 'today', 'username', 'deviceid', 
             'Georreferenciación del punto', 'latitude', 'longitude', 
@@ -244,6 +275,7 @@ if __name__ == '__main__':
     df_final = df_nuevos_final[cols_finales].copy()
     df_final = df_final.replace({np.nan: '', pd.NA: ''}).astype(str)
 
+    # Carga Append
     if len(ids_existentes) == 0:
         sheet.clear()
         sheet.update([df_final.columns.values.tolist()] + df_final.values.tolist())
@@ -252,4 +284,4 @@ if __name__ == '__main__':
         df_append = df_final.reindex(columns=encabezados).replace({np.nan: '', pd.NA: ''}).astype(str)
         sheet.append_rows(df_append.values.tolist())
 
-    print(">>> ÉXITO: Carga completada. <<<")
+    print(">>> ÉXITO: Proceso Completado. <<<")
