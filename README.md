@@ -3,7 +3,9 @@ Este proyecto ejecuta un flujo de trabajo ETL (Extract, Transform, Load) automat
 
 El script realiza enriquecimiento geoespacial de los datos, clasificando cada punto según su ubicación en las Comunas de CABA o el Anillo Digital.
 
-🚀 Funcionalidades
+----------------------------
+# Funcionalidades
+
 Extracción: Descarga la base completa desde la API v2 de KoboToolbox.
 
 Transformación Geoespacial:
@@ -17,8 +19,8 @@ Asignación de Turnos según hora de registro.
 Carga Incremental: Verifica los _uuid existentes en Google Sheets y sube únicamente los registros nuevos (Append) para optimizar recursos y evitar duplicados.
 
 Híbrido: Funciona tanto localmente como en la nube (GitHub Actions).
-
-📂 Estructura del Repositorio
+-----------------------------
+# Estructura del Repositorio
 Los archivos geoespaciales deben estar en la raíz para que el script los detecte automáticamente.
 ├── main.py                 # Script principal (Lógica ETL)
 ├── requirements.txt        # Dependencias de Python
@@ -29,8 +31,8 @@ Los archivos geoespaciales deben estar en la raíz para que el script los detect
 └── .github/workflows/      # Configuración de ejecución automática (Cron)
 
 
-
-⚙️ Configuración
+----------------------------------------------
+# Configuración
 1. Dependencias
 Para correr localmente:
 pip install -r requirements.txt
@@ -43,8 +45,8 @@ Secreto,Descripción
 KOBO_TOKEN,Token de autenticación de la cuenta KoboToolbox.
 GOOGLE_CREDENTIALS_JSON,Contenido completo del JSON de la Service Account de Google Cloud.
 
-
-🔄 Automatización
+-------------------------------------
+# Automatización
 El flujo de trabajo está configurado en GitHub Actions para ejecutarse automáticamente (ej. cada hora) mediante un disparador CRON.
 
 Levanta un entorno Ubuntu.
