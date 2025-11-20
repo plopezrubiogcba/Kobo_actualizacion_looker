@@ -29,25 +29,20 @@ print(f"--- Buscando archivos en: {BASE_DIR} ---")
 
 for root, dirs, files in os.walk(BASE_DIR):
     for file in files:
-        # 1. Buscar KML
         if 'recoleta' in file.lower() and file.lower().endswith('.kml'):
             RUTA_KML_ANILLO = os.path.join(root, file)
             print(f"   ✅ KML encontrado: {RUTA_KML_ANILLO}")
         
-        # 2. Buscar SHP
         if file.lower() == 'comunas.shp':
             RUTA_SHP_COMUNAS = os.path.join(root, file)
             print(f"   ✅ SHP encontrado: {RUTA_SHP_COMUNAS}")
 
-# Validación estricta
 if not RUTA_KML_ANILLO or not RUTA_SHP_COMUNAS:
     print("\n❌ ERROR CRÍTICO: Faltan archivos en el GitHub.")
-    print(f"   KML: {'OK' if RUTA_KML_ANILLO else 'FALTA'}")
-    print(f"   SHP: {'OK' if RUTA_SHP_COMUNAS else 'FALTA'}")
     sys.exit(1)
 
 
-# --- 3. FUNCIONES DE LÓGICA DE NEGOCIO (RESTAURADAS) ---
+# --- 3. FUNCIONES DE LÓGICA DE NEGOCIO ---
 
 def asignar_turno(fecha):
     if pd.isnull(fecha): return None
@@ -59,61 +54,34 @@ def asignar_turno(fecha):
     else: return None
 
 def clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf):
-    """
-    Clasifica los puntos en 'AD' (Anillo Digital) o por número de comuna (1-15).
-    La clasificación del Anillo Digital tiene prioridad.
-    """
-    print("--- Iniciando clasificación de localización ---")
-    
-    # Asegurar CRS (Sistema de coordenadas mundial)
+    print("--- Clasificando Localización ---")
     puntos_gdf = puntos_gdf.to_crs("EPSG:4326")
     anillo_gdf = anillo_gdf.to_crs("EPSG:4326")
     comunas_gdf = comunas_gdf.to_crs("EPSG:4326")
 
-    # Inicializar columna
     puntos_gdf['Localizacion'] = 'Fuera de Zona'
 
-    # 1. Clasificar por Anillo Digital (AD) - Prioridad 1
+    # A. Anillo Digital
     puntos_en_anillo = gpd.sjoin(puntos_gdf, anillo_gdf, how="inner", predicate='within')
     if not puntos_en_anillo.empty:
-        print(f"   -> {len(puntos_en_anillo)} puntos en Anillo Digital (AD).")
         puntos_gdf.loc[puntos_en_anillo.index, 'Localizacion'] = 'AD'
 
-    # 2. Clasificar por Comuna (Resto)
-    # Filtramos solo los que NO fueron clasificados como AD
+    # B. Comunas
     puntos_fuera_anillo_idx = puntos_gdf[puntos_gdf['Localizacion'] != 'AD'].index
     puntos_para_comunas = puntos_gdf.loc[puntos_fuera_anillo_idx]
 
     if not puntos_para_comunas.empty:
         puntos_en_comunas = gpd.sjoin(puntos_para_comunas, comunas_gdf, how="inner", predicate='within')
-        
         if not puntos_en_comunas.empty:
-            # Buscar la columna correcta dinámicamente (Tu lógica original)
-            comuna_col_found = None
-            possible_cols = ['comunas', 'COMUNAS', 'comuna', 'COMUNA', 'NAM', 'ID', 'OBJETO']
+            possible_cols = ['COMUNAS', 'comunas', 'DOM_COMUNA', 'NAM', 'barrio', 'BARRIO', 'COMMUNE', 'ID', 'objeto']
+            col_comuna = next((c for c in possible_cols if c in puntos_en_comunas.columns), None)
             
-            for col in possible_cols:
-                if col in puntos_en_comunas.columns:
-                    comuna_col_found = col
-                    break
-            
-            if comuna_col_found:
-                print(f"   -> {len(puntos_en_comunas)} puntos en Comunas (Columna: '{comuna_col_found}').")
-                
-                # Extraer valores
-                valores_crudos = puntos_en_comunas[comuna_col_found]
-                
-                # Limpieza: Intentar convertir a entero para evitar "1.0"
-                try:
-                    valores_limpios = valores_crudos.fillna(0).astype(float).astype(int).astype(str)
-                except:
-                    valores_limpios = valores_crudos.astype(str)
-
-                puntos_gdf.loc[puntos_en_comunas.index, 'Localizacion'] = valores_limpios
-            else:
-                print(f"   ⚠️ Error: No se encontró columna de nombre en SHP. Disponibles: {comunas_gdf.columns}")
-
-    print("--- Clasificación finalizada ---")
+            if col_comuna:
+                # Convertimos a int y luego string para limpiar (ej 1.0 -> "1")
+                # Pero el tipo final lo manejaremos en el formateo
+                valores = puntos_en_comunas[col_comuna].fillna(0).astype(float).astype(int).astype(str)
+                puntos_gdf.loc[puntos_en_comunas.index, 'Localizacion'] = valores
+    
     return puntos_gdf['Localizacion']
 
 def asignar_recorrido(gdf, poligonos):
@@ -126,9 +94,6 @@ def asignar_recorrido(gdf, poligonos):
     return resultado
 
 def procesar_datos_geoespaciales_total(df_kobo):
-    """Procesa TODO el dataframe descargado para asegurar consistencia."""
-    
-    # 1. Parseo Lat/Lon
     print("Separando coordenadas latitud/longitud...")
     if 'geo_ref/geo_punto' in df_kobo.columns:
         split_coords = df_kobo['geo_ref/geo_punto'].astype(str).str.split(' ', expand=True)
@@ -137,43 +102,33 @@ def procesar_datos_geoespaciales_total(df_kobo):
             df_kobo['longitude'] = pd.to_numeric(split_coords[1], errors='coerce')
     
     df_kobo['start'] = pd.to_datetime(df_kobo['start'])
-    # Limpieza vital: Solo filas con geo válida
     df_kobo.dropna(subset=['latitude', 'longitude'], inplace=True)
-    
     df_kobo['Turno'] = df_kobo['start'].apply(asignar_turno)
 
-    # Crear GeoDataFrame
     puntos_gdf = gpd.GeoDataFrame(
         df_kobo,
         geometry=gpd.points_from_xy(df_kobo.longitude, df_kobo.latitude),
         crs="EPSG:4326"
     )
 
-    # --- CARGA DE CAPAS ---
     try:
-        # KML (Intentamos capa específica primero, luego general)
         try:
             anillo_gdf = gpd.read_file(RUTA_KML_ANILLO, layer='Nuevo Anillo Digital', driver='KML')
         except:
             anillo_gdf = gpd.read_file(RUTA_KML_ANILLO, driver='KML')
         
         if anillo_gdf.crs is None: anillo_gdf.set_crs("EPSG:4326", inplace=True)
-
-        # SHP
         comunas_gdf = gpd.read_file(RUTA_SHP_COMUNAS)
-        
     except Exception as e:
         print(f"❌ ERROR FATAL CARGANDO CAPAS: {e}")
         sys.exit(1)
 
-    # Polígonos Hardcoded
     poligonos_recorrido = {
         'Recorrido A': Polygon([(-58.41017, -34.588232), (-58.413901, -34.594177), (-58.413904, -34.599714),(-58.400064, -34.600033), (-58.386224, -34.599855), (-58.398154, -34.59498),(-58.404592, -34.593108), (-58.386524, -34.595263), (-58.41017, -34.588232)]),
         'Recorrido B': Polygon([(-58.389185, -34.584593), (-58.395365, -34.587137), (-58.400944, -34.594168),(-58.398154, -34.59498), (-58.386524, -34.595263), (-58.383284, -34.587544),(-58.388112, -34.59256), (-58.389185, -34.584593)]),
         'Recorrido C': Polygon([(-58.400944, -34.594168), (-58.395365, -34.587137), (-58.389185, -34.584593),(-58.398455, -34.580212), (-58.407295, -34.581837), (-58.404592, -34.593108),(-58.41017, -34.588232), (-58.400944, -34.594168)])
     }
 
-    # Ejecutar TU lógica de clasificación
     df_kobo['Localizacion'] = clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf)
     df_kobo['Poligono'] = asignar_recorrido(puntos_gdf, poligonos_recorrido)
 
@@ -183,34 +138,29 @@ def procesar_datos_geoespaciales_total(df_kobo):
 # --- 4. MAIN EJECUCIÓN ---
 
 if __name__ == '__main__':
-    print(">>> INICIO DE PROCESO INTEGRADO (ESTRATEGIA: PROCESAR TODO -> FILTRAR NUEVOS) <<<")
+    print(">>> INICIO DE PROCESO INTEGRADO <<<")
     
-    # 1. Descargar KOBO (COMPLETO)
-    print("1. Descargando Kobo Completo...")
+    # 1. Descargar KOBO
+    print("1. Descargando Kobo...")
     headers = {"Authorization": f"Token {TOKEN_KOBO}"}
     try:
         resp = requests.get(URL_KOBO, headers=headers)
         resp.raise_for_status()
         df_raw = pd.json_normalize(resp.json()['results'])
-        print(f"   > Total registros Kobo: {len(df_raw)}")
     except Exception as e:
         print(f"Error Kobo: {e}")
         sys.exit(1)
 
-    if df_raw.empty:
-        print("Kobo vacío.")
-        sys.exit(0)
+    if df_raw.empty: sys.exit(0)
 
-    # 2. PROCESAR TODO EL DATASET (Para asegurar que la geo-clasificación tiene contexto completo)
-    print("2. Procesando lógica geoespacial...")
+    # 2. PROCESAR TODO
+    print("2. Procesando geoespacialmente...")
     df_procesado = procesar_datos_geoespaciales_total(df_raw)
     
-    if df_procesado is None or df_procesado.empty:
-        print("Error: DataFrame vacío tras procesamiento geoespacial.")
-        sys.exit(1)
+    if df_procesado is None or df_procesado.empty: sys.exit(1)
 
-    # 3. Conectar a Google Sheets y Ver qué existe
-    print("3. Verificando duplicados en Google Sheets...")
+    # 3. Verificar duplicados
+    print("3. Verificando duplicados...")
     scope = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets',
              "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
 
@@ -229,10 +179,7 @@ if __name__ == '__main__':
     except:
         ids_existentes = set()
     
-    print(f"   > IDs ya existentes en Sheet: {len(ids_existentes)}")
-
-    # 4. Filtrar: Dejar solo lo que NO está en el Sheet
-    # Convertir _uuid a string para comparación segura
+    # 4. Filtrar nuevos
     if '_uuid' in df_procesado.columns:
         df_procesado['_uuid'] = df_procesado['_uuid'].astype(str)
         df_nuevos_final = df_procesado[~df_procesado['_uuid'].isin(ids_existentes)].copy()
@@ -240,17 +187,15 @@ if __name__ == '__main__':
         df_nuevos_final = df_procesado
 
     if df_nuevos_final.empty:
-        print(">>> Todo actualizado. No hay registros nuevos para subir. <<<")
+        print(">>> Todo actualizado. <<<")
         sys.exit(0)
 
-    print(f"   > Registros NUEVOS a subir: {len(df_nuevos_final)}")
+    print(f"   > Subiendo {len(df_nuevos_final)} registros nuevos...")
 
-    # 5. Formatear y Subir
-    print("4. Subiendo datos...")
+    # 5. FORMATEO ESTRICTO DE TIPOS DE DATOS (Aquí corregimos el error del apostrofe)
     df_nuevos_final['hora_start'] = df_nuevos_final['start'].dt.strftime('%H:%M:%S')
     df_nuevos_final['start'] = df_nuevos_final['start'].dt.strftime('%Y-%m-%d')
 
-    # Renombrar
     rename_map = {
         'geo_ref/geo_punto': 'Georreferenciación del punto',
         'datos_per/cant_pers': 'Cantidad de personas en situación de calle observadas',
@@ -260,7 +205,6 @@ if __name__ == '__main__':
     }
     df_nuevos_final.rename(columns=rename_map, inplace=True)
 
-    # Columnas finales
     columnas_deseadas = [
             'Turno', 'start', 'hora_start', 'end', 'today', 'username', 'deviceid', 
             'Georreferenciación del punto', 'latitude', 'longitude', 
@@ -273,15 +217,37 @@ if __name__ == '__main__':
     
     cols_finales = [c for c in columnas_deseadas if c in df_nuevos_final.columns]
     df_final = df_nuevos_final[cols_finales].copy()
-    df_final = df_final.replace({np.nan: '', pd.NA: ''}).astype(str)
 
-    # Carga Append
+    # --- CORRECCIÓN CLAVE ---
+    # 1. Forzar columnas numéricas a tipo numérico real (no string)
+    cols_numericas = ['latitude', 'longitude', 'Cantidad de personas en situación de calle observadas']
+    
+    for col in cols_numericas:
+        if col in df_final.columns:
+            # to_numeric convierte a float/int. Si falla, pone NaN.
+            df_final[col] = pd.to_numeric(df_final[col], errors='coerce')
+
+    # 2. Localizacion: Intentar convertir a número si es posible (para que "5" sea número), 
+    # pero dejar "AD" o "Fuera de Zona" como texto.
+    if 'Localizacion' in df_final.columns:
+         df_final['Localizacion'] = pd.to_numeric(df_final['Localizacion'], errors='ignore')
+
+    # 3. Reemplazar NaN con None (Python None = Celda Vacia en Sheets)
+    # Esto evita tener que convertir todo a string
+    df_final = df_final.where(pd.notnull(df_final), None)
+
+    # Carga
     if len(ids_existentes) == 0:
         sheet.clear()
+        # update requiere lista de listas, None se maneja bien
         sheet.update([df_final.columns.values.tolist()] + df_final.values.tolist())
     else:
         encabezados = sheet.row_values(1)
-        df_append = df_final.reindex(columns=encabezados).replace({np.nan: '', pd.NA: ''}).astype(str)
+        # Reindexamos
+        df_append = df_final.reindex(columns=encabezados)
+        # Volvemos a limpiar NaN generados por reindex
+        df_append = df_append.where(pd.notnull(df_append), None)
+        
         sheet.append_rows(df_append.values.tolist())
 
-    print(">>> ÉXITO: Proceso Completado. <<<")
+    print(">>> ÉXITO: Carga completada sin apostrofes. <<<")
