@@ -55,6 +55,9 @@ def asignar_turno(fecha):
     else: return None
 
 def clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf):
+    """
+    Clasifica los puntos en 'AD' (Anillo Digital) o por número de comuna.
+    """
     print("--- Iniciando clasificación de localización ---")
     
     puntos_gdf = puntos_gdf.to_crs("EPSG:4326")
@@ -77,6 +80,7 @@ def clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf):
         puntos_en_comunas = gpd.sjoin(puntos_para_comunas, comunas_gdf, how="inner", predicate='within')
         
         if not puntos_en_comunas.empty:
+            # Buscar columna dinámica
             comuna_col_found = None
             possible_cols = ['comunas', 'COMUNAS', 'comuna', 'COMUNA', 'NAM', 'ID', 'OBJETO', 'barrio']
             
@@ -86,14 +90,10 @@ def clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf):
                     break
             
             if comuna_col_found:
-                print(f"   -> {len(puntos_en_comunas)} puntos en Comunas (Columna: '{comuna_col_found}').")
                 valores = puntos_en_comunas[comuna_col_found].astype(str)
                 valores = valores.str.replace(r'\.0$', '', regex=True)
                 puntos_gdf.loc[puntos_en_comunas.index, 'Localizacion'] = valores
-            else:
-                print(f"   ⚠️ Error: No se encontró columna de nombre en SHP. Disponibles: {comunas_gdf.columns}")
-
-    print("--- Clasificación finalizada ---")
+    
     return puntos_gdf['Localizacion']
 
 def asignar_recorrido(gdf, poligonos):
@@ -125,6 +125,7 @@ def procesar_datos_geoespaciales_total(df_kobo):
             df_kobo['_Georreferenciación del punto_precision'] = 0
     
     df_kobo['start'] = pd.to_datetime(df_kobo['start'])
+    # Limpieza vital: Solo filas con geo válida
     df_kobo.dropna(subset=['latitude', 'longitude'], inplace=True)
     
     df_kobo['Turno'] = df_kobo['start'].apply(asignar_turno)
@@ -165,6 +166,7 @@ def procesar_datos_geoespaciales_total(df_kobo):
 if __name__ == '__main__':
     print(">>> INICIO DE PROCESO INTEGRADO (ESTRICTO + JSON COMPLIANT) <<<")
     
+    # 1. KOBO
     print("1. Descargando Kobo Completo...")
     headers = {"Authorization": f"Token {TOKEN_KOBO}"}
     try:
@@ -177,10 +179,13 @@ if __name__ == '__main__':
 
     if df_raw.empty: sys.exit(0)
 
+    # 2. PROCESAR GEOESPACIALMENTE
     print("2. Procesando lógica geoespacial...")
     df_procesado = procesar_datos_geoespaciales_total(df_raw)
+    
     if df_procesado is None or df_procesado.empty: sys.exit(1)
 
+    # 3. GOOGLE SHEETS & DUPLICADOS
     print("3. Verificando duplicados...")
     scope = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets',
              "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
@@ -200,6 +205,7 @@ if __name__ == '__main__':
     except:
         ids_existentes = set()
     
+    # 4. FILTRAR NUEVOS
     if '_uuid' in df_procesado.columns:
         df_procesado['_uuid'] = df_procesado['_uuid'].astype(str)
         df_nuevos_final = df_procesado[~df_procesado['_uuid'].isin(ids_existentes)].copy()
@@ -212,7 +218,9 @@ if __name__ == '__main__':
 
     print(f"   > Registros NUEVOS a subir: {len(df_nuevos_final)}")
 
+    # 5. FORMATEO ESTRICTO
     print("4. Aplicando formatos estrictos...")
+    
     df_nuevos_final['hora_start'] = df_nuevos_final['start'].dt.strftime('%H:%M:%S')
     df_nuevos_final['start'] = df_nuevos_final['start'].dt.strftime('%Y-%m-%d')
 
@@ -241,13 +249,14 @@ if __name__ == '__main__':
     
     df_final = df_nuevos_final.reindex(columns=columnas_deseadas)
 
-    # FORMATO: Numéricos
+    # FORMATO: Numéricos (Float)
     cols_float = ['latitude', 'longitude', '_Georreferenciación del punto_altitude', '_Georreferenciación del punto_precision']
     for col in cols_float:
         if col in df_final.columns:
             df_final[col] = pd.to_numeric(df_final[col], errors='coerce')
 
-    # FORMATO: Enteros
+    # FORMATO: Enteros (SOLO los que son realmente numéricos)
+    # He quitado "Características..." y "Se observan niños..." porque son Texto.
     cols_enteros = ['Cantidad de personas en situación de calle observadas']
     for col_cant in cols_enteros:
         if col_cant in df_final.columns:
@@ -264,7 +273,6 @@ if __name__ == '__main__':
 
     # LIMPIEZA CRÍTICA PARA JSON (Evita error 'Out of range float values' y 'list_value')
     
-    # 1. Convertir estructuras complejas (listas/dicts) a string
     def clean_complex_types(val):
         if isinstance(val, (list, dict)):
             return str(val)
@@ -273,14 +281,13 @@ if __name__ == '__main__':
     for col in df_final.columns:
         df_final[col] = df_final[col].apply(clean_complex_types)
 
-    # 2. Reemplazar Infinito por NaN (JSON no soporta Inf)
+    # 2. Reemplazar Infinito por NaN
     df_final = df_final.replace([np.inf, -np.inf], np.nan)
 
     # 3. Convertir DF a object para permitir None
-    # Esto es CLAVE: evita que Pandas fuerce None a NaN en columnas float
     df_final = df_final.astype(object)
 
-    # 4. Reemplazar NaN con None (Esto envía 'null' limpio a Google Sheets)
+    # 4. Reemplazar NaN con None
     df_final = df_final.where(pd.notnull(df_final), None)
 
     print("5. Subiendo a Google Sheets...")
@@ -291,9 +298,7 @@ if __name__ == '__main__':
         headers_sheet = sheet.row_values(1)
         if not headers_sheet: headers_sheet = columnas_deseadas
         
-        # Reindexar para asegurar orden
         df_append = df_final.reindex(columns=headers_sheet)
-        # Repetir limpieza en el DF a appendear (por si reindex genera nuevos NaNs)
         df_append = df_append.astype(object)
         df_append = df_append.where(pd.notnull(df_append), None)
         
