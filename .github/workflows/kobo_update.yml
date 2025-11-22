@@ -2,10 +2,10 @@ name: Actualizar Kobo a Looker
 
 on:
   schedule:
-    # Se ejecuta cada hora en el minuto 15 (ej: 10:15, 11:15...)
-    # Esto evita la congestión de las horas en punto en los servidores de GitHub
-    - cron: '15 * * * *'
-  workflow_dispatch: # Permite ejecutar manualmente desde la pestaña Actions
+    # Se ejecuta en el minuto 15 de cada hora
+    # PERO solo de Lunes (1) a Viernes (5)
+    - cron: '15 * * * 1-5'
+  workflow_dispatch: # Permite ejecutar manualmente cualquier día si hace falta
 
 jobs:
   run-etl-process:
@@ -34,4 +34,5 @@ jobs:
         env:
           KOBO_TOKEN: ${{ secrets.KOBO_TOKEN }}
           GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+        # Asegúrate de que el nombre del archivo coincida con el de tu repositorio (main.py o main_act_flash.py)
         run: python main_act_flash.py
