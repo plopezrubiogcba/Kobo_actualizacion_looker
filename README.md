@@ -1,4 +1,5 @@
 Automatización ETL: KoboToolbox → Google Sheets
+
 Este proyecto ejecuta un flujo de trabajo ETL (Extract, Transform, Load) automatizado que sincroniza datos de encuestas de KoboToolbox con una hoja de Google Sheets para alimentar un dashboard de Looker.
 
 El script realiza enriquecimiento geoespacial de los datos, clasificando cada punto según su ubicación en las Comunas de CABA o el Anillo Digital.
