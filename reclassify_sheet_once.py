@@ -22,16 +22,24 @@ import geopandas as gpd
 from shapely.geometry import Point
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2 import service_account
 import os
 import json
 import sys
+import re
 import zipfile
 from datetime import datetime
 
-# Configuración
+# Configuración Google Sheets
 NOMBRE_SPREADSHEET = "puntos flash"
 NOMBRE_HOJA = "Sheet4"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Configuración BigQuery
+PROJECT_ID = 'kobo-looker-connect'
+DATASET_ID = 'datos_flash'
+TABLE_ID = 'kobo_flash_consolidado'
+CREDENTIALS_PATH = 'kobo-looker-connect.json'
 
 # Buscar archivos geográficos
 print("🔍 Buscando archivos geográficos...")
@@ -146,6 +154,75 @@ def clasificar_localizacion_3_pasos(df):
     df['Localizacion_Nueva'] = puntos_gdf['Localizacion_Nueva']
     
     return df
+
+def subir_a_bigquery(df):
+    """
+    Sube el DataFrame a Google BigQuery.
+    Trabaja sobre una copia para no afectar los datos de Sheets.
+    Limpia nombres de columnas y sanitiza tipos para compatibilidad con BigQuery.
+    """
+    print("\n🔄 Preparando datos para BigQuery...")
+    
+    # 1. Clonar DataFrame
+    df_bq = df.copy()
+    
+    # 2. Limpieza de nombres de columnas para BigQuery
+    def limpiar_nombre_columna(nombre):
+        """Convierte nombres de columnas a formato compatible con BigQuery"""
+        if nombre is None:
+            return 'unnamed_column'
+        nombre = str(nombre)
+        nombre = re.sub(r'[ ./()]', '_', nombre)
+        nombre = re.sub(r'[^\w]', '_', nombre)
+        nombre = re.sub(r'_+', '_', nombre)
+        return nombre.strip('_').lower()
+    
+    df_bq.columns = [limpiar_nombre_columna(col) for col in df_bq.columns]
+    print(f"   ✅ Nombres de columnas limpiados para BigQuery")
+    
+    # 3. Sanitización de tipos complejos (listas/diccionarios)
+    for col in df_bq.columns:
+        df_bq[col] = df_bq[col].apply(
+            lambda x: str(x) if isinstance(x, (list, dict)) else x
+        )
+    print(f"   ✅ Tipos de datos sanitizados")
+    
+    # 4. Buscar archivo de credenciales
+    possible_names = ['kobo-looker-connect.json', 'credenciales.json', 'service_account.json']
+    ruta_creds = None
+    
+    for name in possible_names:
+        for root, _, files in os.walk(BASE_DIR):
+            if name in files:
+                ruta_creds = os.path.join(root, name)
+                break
+        if ruta_creds:
+            break
+    
+    if not ruta_creds:
+        raise FileNotFoundError(f"No se encontró archivo de credenciales para BigQuery")
+    
+    print(f"   ✅ Usando credenciales: {os.path.basename(ruta_creds)}")
+    
+    # 5. Autenticación con BigQuery
+    credentials = service_account.Credentials.from_service_account_file(
+        ruta_creds,
+        scopes=["https://www.googleapis.com/auth/bigquery"]
+    )
+    
+    # 6. Carga a BigQuery
+    table_full_id = f"{DATASET_ID}.{TABLE_ID}"
+    print(f"   📤 Subiendo a BigQuery: {PROJECT_ID}.{table_full_id}")
+    
+    df_bq.to_gbq(
+        destination_table=table_full_id,
+        project_id=PROJECT_ID,
+        credentials=credentials,
+        if_exists='replace',
+        progress_bar=False
+    )
+    
+    print(f"   ✅ {len(df_bq)} registros cargados exitosamente a BigQuery")
 
 def main():
     print("="*60)
@@ -268,12 +345,22 @@ def main():
         value_input_option='USER_ENTERED'
     )
     
+    # Subir a BigQuery
+    print("\n📤 Subiendo a BigQuery...")
+    try:
+        subir_a_bigquery(df_final)
+        print("   ✅ Carga a BigQuery exitosa")
+    except Exception as e:
+        print(f"   ⚠️  Error en BigQuery (no crítico): {e}")
+        print(f"   ℹ️  Los datos en Google Sheets se actualizaron correctamente")
+    
     print("\n" + "="*60)
     print("✅ RECLASIFICACIÓN COMPLETADA EXITOSAMENTE")
     print("="*60)
     print(f"📁 Backup guardado en: {backup_file}")
     print(f"📊 Total registros procesados: {len(df_final)}")
-    print("\n🎉 El Google Sheet ha sido actualizado con la nueva clasificación")
+    print(f"📊 Tabla BigQuery: {PROJECT_ID}.{DATASET_ID}.{TABLE_ID}")
+    print("\n🎉 El Google Sheet y BigQuery han sido actualizados con la nueva clasificación")
 
 if __name__ == '__main__':
     try:
