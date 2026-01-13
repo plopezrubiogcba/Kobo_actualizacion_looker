@@ -22,9 +22,10 @@ jobs:
 
       - name: Instalar dependencias del sistema
         # Geopandas necesita librerías de C++ (spatialindex) para funcionar en Linux
+        # Fiona necesita GDAL para leer KML/KMZ
         run: |
           sudo apt-get update
-          sudo apt-get install -y libspatialindex-dev
+          sudo apt-get install -y libspatialindex-dev gdal-bin libgdal-dev
 
       - name: Instalar librerías de Python
         run: |
