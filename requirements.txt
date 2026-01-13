@@ -6,4 +6,3 @@ gspread
 oauth2client
 openpyxl
 rtree
-fiona

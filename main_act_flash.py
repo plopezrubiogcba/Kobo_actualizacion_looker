@@ -10,7 +10,6 @@ import json
 import sys
 import re
 import zipfile
-import fiona
 
 # --- 1. CONFIGURACIÓN GLOBAL ---
 # Modificacion desde vscode
@@ -145,13 +144,10 @@ def procesar_datos_geoespaciales_total(df_kobo):
     )
 
     try:
-        # Habilitar soporte KML en fiona
-        fiona.drvsupport.supported_drivers['KML'] = 'rw'
-        fiona.drvsupport.supported_drivers['LIBKML'] = 'rw'
-        
+        # GeoPandas puede leer KML directamente sin configuración explícita de drivers
         # Leer KML de Recoleta Nueva Operación
         try:
-            recoleta_gdf = gpd.read_file(RUTA_KML_RECOLETA, driver='KML')
+            recoleta_gdf = gpd.read_file(RUTA_KML_RECOLETA)
         except:
             # Si es KMZ (archivo ZIP), extraer KML primero
             if RUTA_KML_RECOLETA.lower().endswith('.kmz'):
