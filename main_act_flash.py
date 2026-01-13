@@ -9,9 +9,11 @@ import os
 import json
 import sys
 import re
+import zipfile
+import fiona
 
 # --- 1. CONFIGURACIÓN GLOBAL ---
-
+# Modificacion desde vscode
 
 TOKEN_KOBO = os.environ.get("KOBO_TOKEN", "b6a9c8897db4c180b9eff560e890edfb394313db")
 UID_KOBO = "aH2SygyBTRCkqCgBtu4m3R"
@@ -23,22 +25,22 @@ NOMBRE_HOJA = "Sheet4"
 
 # --- 2. BÚSQUEDA AUTOMÁTICA DE ARCHIVOS LOCALES ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-RUTA_KML_ANILLO = None
+RUTA_KML_RECOLETA = None
 RUTA_SHP_COMUNAS = None
 
 print(f"--- Buscando archivos en: {BASE_DIR} ---")
 
 for root, dirs, files in os.walk(BASE_DIR):
     for file in files:
-        if 'recoleta' in file.lower() and file.lower().endswith('.kml'):
-            RUTA_KML_ANILLO = os.path.join(root, file)
-            print(f"   ✅ KML encontrado: {RUTA_KML_ANILLO}")
+        if 'recoleta nueva operación' in file.lower() and file.lower().endswith('.kml'):
+            RUTA_KML_RECOLETA = os.path.join(root, file)
+            print(f"   ✅ KML Recoleta encontrado: {RUTA_KML_RECOLETA}")
         
         if file.lower() == 'comunas.shp':
             RUTA_SHP_COMUNAS = os.path.join(root, file)
             print(f"   ✅ SHP encontrado: {RUTA_SHP_COMUNAS}")
 
-if not RUTA_KML_ANILLO or not RUTA_SHP_COMUNAS:
+if not RUTA_KML_RECOLETA or not RUTA_SHP_COMUNAS:
     print("\n❌ ERROR CRÍTICO: Faltan archivos en el GitHub.")
     sys.exit(1)
 
@@ -54,33 +56,37 @@ def asignar_turno(fecha):
     elif h >= 22 or h < 3: return "TN"
     else: return None
 
-def clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf):
+def clasificar_localizacion(puntos_gdf, recoleta_gdf, comunas_gdf):
     """
-    Clasifica los puntos en 'AD' (Anillo Digital) o por número de comuna.
+    Clasifica los puntos:
+    1. Primero: Puntos dentro de Recoleta Nueva Operación -> 14.5
+    2. Luego: Resto de puntos por número de comuna (1.0-15.0)
     """
     print("--- Iniciando clasificación de localización ---")
     
+    # Asegurar mismo CRS
     puntos_gdf = puntos_gdf.to_crs("EPSG:4326")
-    anillo_gdf = anillo_gdf.to_crs("EPSG:4326")
+    recoleta_gdf = recoleta_gdf.to_crs("EPSG:4326")
     comunas_gdf = comunas_gdf.to_crs("EPSG:4326")
 
-    puntos_gdf['Localizacion'] = 'Fuera de Zona'
+    # Inicializar como None
+    puntos_gdf['Localizacion'] = None
 
-    # 1. Anillo Digital (AD)
-    puntos_en_anillo = gpd.sjoin(puntos_gdf, anillo_gdf, how="inner", predicate='within')
-    if not puntos_en_anillo.empty:
-        print(f"   -> {len(puntos_en_anillo)} puntos en Anillo Digital (AD).")
-        puntos_gdf.loc[puntos_en_anillo.index, 'Localizacion'] = 'AD'
+    # PASO 1: Clasificar Recoleta Nueva Operación como 14.5
+    puntos_en_recoleta = gpd.sjoin(puntos_gdf, recoleta_gdf, how="inner", predicate='within')
+    if not puntos_en_recoleta.empty:
+        print(f"   ✅ {len(puntos_en_recoleta)} puntos clasificados como Recoleta Nueva Operación (14.5).")
+        puntos_gdf.loc[puntos_en_recoleta.index, 'Localizacion'] = 14.5
 
-    # 2. Comunas (Resto)
-    puntos_fuera_anillo_idx = puntos_gdf[puntos_gdf['Localizacion'] != 'AD'].index
-    puntos_para_comunas = puntos_gdf.loc[puntos_fuera_anillo_idx]
+    # PASO 2: Clasificar por comunas (solo los que NO son Recoleta)
+    mask_recoleta = puntos_gdf['Localizacion'] == 14.5
+    puntos_para_comunas = puntos_gdf[~mask_recoleta]
 
     if not puntos_para_comunas.empty:
         puntos_en_comunas = gpd.sjoin(puntos_para_comunas, comunas_gdf, how="inner", predicate='within')
         
         if not puntos_en_comunas.empty:
-            # Buscar columna dinámica
+            # Buscar columna de comuna dinámicamente
             comuna_col_found = None
             possible_cols = ['comunas', 'COMUNAS', 'comuna', 'COMUNA', 'NAM', 'ID', 'OBJETO', 'barrio']
             
@@ -90,10 +96,12 @@ def clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf):
                     break
             
             if comuna_col_found:
-                valores = puntos_en_comunas[comuna_col_found].astype(str)
-                valores = valores.str.replace(r'\.0$', '', regex=True)
-                puntos_gdf.loc[puntos_en_comunas.index, 'Localizacion'] = valores
+                # Convertir a float para mantener tipo numérico
+                valores_numericos = pd.to_numeric(puntos_en_comunas[comuna_col_found], errors='coerce')
+                puntos_gdf.loc[puntos_en_comunas.index, 'Localizacion'] = valores_numericos
+                print(f"   ✅ {len(puntos_en_comunas)} puntos clasificados por comuna.")
     
+    # Localizacion ahora es float (14.5 para Recoleta, 1.0-15.0 para comunas, None para fuera de zona)
     return puntos_gdf['Localizacion']
 
 def asignar_recorrido(gdf, poligonos):
@@ -137,12 +145,27 @@ def procesar_datos_geoespaciales_total(df_kobo):
     )
 
     try:
-        try:
-            anillo_gdf = gpd.read_file(RUTA_KML_ANILLO, layer='Nuevo Anillo Digital', driver='KML')
-        except:
-            anillo_gdf = gpd.read_file(RUTA_KML_ANILLO, driver='KML')
+        # Habilitar soporte KML en fiona
+        fiona.drvsupport.supported_drivers['KML'] = 'rw'
+        fiona.drvsupport.supported_drivers['LIBKML'] = 'rw'
         
-        if anillo_gdf.crs is None: anillo_gdf.set_crs("EPSG:4326", inplace=True)
+        # Leer KML de Recoleta Nueva Operación
+        try:
+            recoleta_gdf = gpd.read_file(RUTA_KML_RECOLETA, driver='KML')
+        except:
+            # Si es KMZ (archivo ZIP), extraer KML primero
+            if RUTA_KML_RECOLETA.lower().endswith('.kmz'):
+                with zipfile.ZipFile(RUTA_KML_RECOLETA, 'r') as kmz:
+                    kml_files = [f for f in kmz.namelist() if f.endswith('.kml')]
+                    if kml_files:
+                        with kmz.open(kml_files[0]) as kml_file:
+                            recoleta_gdf = gpd.read_file(kml_file)
+                    else:
+                        raise FileNotFoundError("No se encontró KML dentro del KMZ")
+            else:
+                recoleta_gdf = gpd.read_file(RUTA_KML_RECOLETA)
+        
+        if recoleta_gdf.crs is None: recoleta_gdf.set_crs("EPSG:4326", inplace=True)
         comunas_gdf = gpd.read_file(RUTA_SHP_COMUNAS)
         
     except Exception as e:
@@ -155,7 +178,7 @@ def procesar_datos_geoespaciales_total(df_kobo):
         'Recorrido C': Polygon([(-58.400944, -34.594168), (-58.395365, -34.587137), (-58.389185, -34.584593),(-58.398455, -34.580212), (-58.407295, -34.581837), (-58.404592, -34.593108),(-58.41017, -34.588232), (-58.400944, -34.594168)])
     }
 
-    df_kobo['Localizacion'] = clasificar_localizacion(puntos_gdf, anillo_gdf, comunas_gdf)
+    df_kobo['Localizacion'] = clasificar_localizacion(puntos_gdf, recoleta_gdf, comunas_gdf)
     df_kobo['Poligono'] = asignar_recorrido(puntos_gdf, poligonos_recorrido)
 
     return df_kobo
@@ -262,14 +285,10 @@ if __name__ == '__main__':
         if col_cant in df_final.columns:
             df_final[col_cant] = pd.to_numeric(df_final[col_cant], errors='coerce').fillna(0).astype(int)
 
-    # FORMATO: Localización
+    # FORMATO: Localización (ya viene como float desde clasificar_localizacion)
+    # 14.5 = Recoleta Nueva Operación, 1.0-15.0 = Comunas, None = Fuera de zona
     if 'Localizacion' in df_final.columns:
-        def limpiar_localizacion(valor):
-            try:
-                return int(float(valor))
-            except (ValueError, TypeError):
-                return valor
-        df_final['Localizacion'] = df_final['Localizacion'].apply(limpiar_localizacion)
+        df_final['Localizacion'] = pd.to_numeric(df_final['Localizacion'], errors='coerce')
 
     # LIMPIEZA CRÍTICA PARA JSON (Evita error 'Out of range float values' y 'list_value')
     
