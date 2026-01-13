@@ -179,12 +179,24 @@ def main():
         creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS_JSON"])
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     else:
-        ruta_creds = next(
-            (os.path.join(root, 'credenciales.json') 
-             for root, _, files in os.walk(BASE_DIR) 
-             if 'credenciales.json' in files), 
-            'credenciales.json'
-        )
+        # Buscar archivo de credenciales con múltiples nombres posibles
+        possible_names = ['kobo-looker-connect.json', 'credenciales.json', 'service_account.json']
+        ruta_creds = None
+        
+        for name in possible_names:
+            for root, _, files in os.walk(BASE_DIR):
+                if name in files:
+                    ruta_creds = os.path.join(root, name)
+                    print(f"✅ Credenciales encontradas: {name}")
+                    break
+            if ruta_creds:
+                break
+        
+        if not ruta_creds:
+            print("❌ ERROR: No se encontró archivo de credenciales")
+            print(f"   Buscando: {', '.join(possible_names)}")
+            sys.exit(1)
+        
         creds = ServiceAccountCredentials.from_json_keyfile_name(ruta_creds, scope)
     
     client = gspread.authorize(creds)

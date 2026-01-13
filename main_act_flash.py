@@ -14,6 +14,14 @@ import zipfile
 # --- 1. CONFIGURACIÓN GLOBAL ---
 # Modificacion desde vscode
 
+# Cargar variables de entorno desde .env si existe (para ejecución local)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # Busca .env en el directorio actual
+    print("✅ Variables de .env cargadas")
+except ImportError:
+    pass  # python-dotenv no instalado, usar solo variables del sistema
+
 TOKEN_KOBO = os.environ.get("KOBO_TOKEN", "b6a9c8897db4c180b9eff560e890edfb394313db")
 UID_KOBO = "aH2SygyBTRCkqCgBtu4m3R"
 URL_KOBO = f"https://kf.kobotoolbox.org/api/v2/assets/{UID_KOBO}/data.json"
@@ -242,7 +250,24 @@ if __name__ == '__main__':
         creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS_JSON"])
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     else:
-        ruta_creds = next((os.path.join(root, 'credenciales.json') for root, _, files in os.walk(BASE_DIR) if 'credenciales.json' in files), 'credenciales.json')
+        # Buscar archivo de credenciales con múltiples nombres posibles
+        possible_names = ['kobo-looker-connect.json', 'credenciales.json', 'service_account.json']
+        ruta_creds = None
+        
+        for name in possible_names:
+            for root, _, files in os.walk(BASE_DIR):
+                if name in files:
+                    ruta_creds = os.path.join(root, name)
+                    print(f"✅ Credenciales encontradas: {name}")
+                    break
+            if ruta_creds:
+                break
+        
+        if not ruta_creds:
+            print("❌ ERROR: No se encontró archivo de credenciales")
+            print(f"   Buscando: {', '.join(possible_names)}")
+            sys.exit(1)
+        
         creds = ServiceAccountCredentials.from_json_keyfile_name(ruta_creds, scope)
 
     client = gspread.authorize(creds)
