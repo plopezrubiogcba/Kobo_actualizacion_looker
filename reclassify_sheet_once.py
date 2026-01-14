@@ -13,7 +13,7 @@ IMPORTANTE:
 
 Clasificación en 3 pasos:
 1. Palermo Norte → 14.5
-2. Recoleta Nueva Operación → 2.5
+2. Anillo Digital C2 → 2.5
 3. Comunas → 1.0-15.0
 """
 
@@ -44,7 +44,7 @@ CREDENTIALS_PATH = 'kobo-looker-connect.json'
 # Buscar archivos geográficos
 print("🔍 Buscando archivos geográficos...")
 RUTA_KMZ_PALERMO = None
-RUTA_KML_RECOLETA = None
+RUTA_KML_ANILLO_DIGITAL = None
 RUTA_SHP_COMUNAS = None
 
 for root, dirs, files in os.walk(BASE_DIR):
@@ -53,15 +53,15 @@ for root, dirs, files in os.walk(BASE_DIR):
             RUTA_KMZ_PALERMO = os.path.join(root, file)
             print(f"   ✅ Palermo Norte: {RUTA_KMZ_PALERMO}")
         
-        if 'recoleta nueva operación' in file.lower() and file.lower().endswith('.kml'):
-            RUTA_KML_RECOLETA = os.path.join(root, file)
-            print(f"   ✅ Recoleta: {RUTA_KML_RECOLETA}")
+        if 'anillo_digital' in file.lower() and file.lower().endswith('.kmz'):
+            RUTA_KML_ANILLO_DIGITAL = os.path.join(root, file)
+            print(f"   ✅ Anillo Digital: {RUTA_KML_ANILLO_DIGITAL}")
         
         if file.lower() == 'comunas.shp':
             RUTA_SHP_COMUNAS = os.path.join(root, file)
             print(f"   ✅ Comunas: {RUTA_SHP_COMUNAS}")
 
-if not all([RUTA_KMZ_PALERMO, RUTA_KML_RECOLETA, RUTA_SHP_COMUNAS]):
+if not all([RUTA_KMZ_PALERMO, RUTA_KML_ANILLO_DIGITAL, RUTA_SHP_COMUNAS]):
     print("❌ ERROR: Faltan archivos geográficos")
     sys.exit(1)
 
@@ -84,21 +84,21 @@ def clasificar_localizacion_3_pasos(df):
         palermo_gdf.set_crs("EPSG:4326", inplace=True)
     palermo_gdf = palermo_gdf.to_crs("EPSG:4326")
     
-    # Recoleta
+    # Anillo Digital
     try:
-        recoleta_gdf = gpd.read_file(RUTA_KML_RECOLETA)
+        anillo_digital_gdf = gpd.read_file(RUTA_KML_ANILLO_DIGITAL)
     except:
-        if RUTA_KML_RECOLETA.lower().endswith('.kmz'):
-            with zipfile.ZipFile(RUTA_KML_RECOLETA, 'r') as kmz:
+        if RUTA_KML_ANILLO_DIGITAL.lower().endswith('.kmz'):
+            with zipfile.ZipFile(RUTA_KML_ANILLO_DIGITAL, 'r') as kmz:
                 kml_files = [f for f in kmz.namelist() if f.endswith('.kml')]
                 if kml_files:
                     with kmz.open(kml_files[0]) as kml_file:
-                        recoleta_gdf = gpd.read_file(kml_file)
+                        anillo_digital_gdf = gpd.read_file(kml_file)
         else:
-            recoleta_gdf = gpd.read_file(RUTA_KML_RECOLETA)
-    if recoleta_gdf.crs is None:
-        recoleta_gdf.set_crs("EPSG:4326", inplace=True)
-    recoleta_gdf = recoleta_gdf.to_crs("EPSG:4326")
+            anillo_digital_gdf = gpd.read_file(RUTA_KML_ANILLO_DIGITAL)
+    if anillo_digital_gdf.crs is None:
+        anillo_digital_gdf.set_crs("EPSG:4326", inplace=True)
+    anillo_digital_gdf = anillo_digital_gdf.to_crs("EPSG:4326")
     
     # Comunas
     comunas_gdf = gpd.read_file(RUTA_SHP_COMUNAS).to_crs("EPSG:4326")
@@ -120,16 +120,16 @@ def clasificar_localizacion_3_pasos(df):
         puntos_gdf.loc[puntos_en_palermo.index, 'Localizacion_Nueva'] = 14.5
         print(f"      ✅ {len(puntos_en_palermo)} puntos → 14.5 (Palermo Norte)")
     
-    # PASO 2: Recoleta
-    print("   🔹 Paso 2: Clasificando Recoleta Nueva Operación...")
+    # PASO 2: Anillo Digital
+    print("   🔹 Paso 2: Clasificando Anillo Digital...")
     mask_palermo = puntos_gdf['Localizacion_Nueva'] == 14.5
     puntos_restantes = puntos_gdf[~mask_palermo]
     
-    if not puntos_restantes.empty:
-        puntos_en_recoleta = gpd.sjoin(puntos_restantes, recoleta_gdf, how="inner", predicate='within')
-        if not puntos_en_recoleta.empty:
-            puntos_gdf.loc[puntos_en_recoleta.index, 'Localizacion_Nueva'] = 2.5
-            print(f"      ✅ {len(puntos_en_recoleta)} puntos → 2.5 (Recoleta)")
+    if not puntos_restantes.empty:      
+        puntos_en_anillo_digital = gpd.sjoin(puntos_restantes, anillo_digital_gdf, how="inner", predicate='within')
+        if not puntos_en_anillo_digital.empty:
+            puntos_gdf.loc[puntos_en_anillo_digital.index, 'Localizacion_Nueva'] = 2.5
+            print(f"      ✅ {len(puntos_en_anillo_digital)} puntos → 2.5 (Anillo Digital)")
     
     # PASO 3: Comunas
     print("   🔹 Paso 3: Clasificando por Comunas...")
@@ -235,7 +235,7 @@ def main():
     print("3. REEMPLAZAR completamente el contenido del sheet")
     print("\n📋 Nueva clasificación:")
     print("   • Palermo Norte → 14.5")
-    print("   • Recoleta Nueva Operación → 2.5")
+    print("   • Anillo Digital C2 → 2.5")
     print("   • Comunas → 1.0-15.0")
     
     respuesta = input("\n¿Continuar? (escribe 'SI' para confirmar): ")
@@ -317,7 +317,7 @@ def main():
     # Mostrar estadísticas
     print("\n📊 Resultados de reclasificación:")
     print(f"   • Palermo Norte (14.5): {(df_reclasificado['Localizacion_Nueva'] == 14.5).sum()}")
-    print(f"   • Recoleta (2.5): {(df_reclasificado['Localizacion_Nueva'] == 2.5).sum()}")
+    print(f"   • Anillo Digital C2 (2.5): {(df_reclasificado['Localizacion_Nueva'] == 2.5).sum()}")
     print(f"   • Comuna 1-15: {((df_reclasificado['Localizacion_Nueva'] >= 1) & (df_reclasificado['Localizacion_Nueva'] <= 15)).sum()}")
     print(f"   • Sin clasificar: {df_reclasificado['Localizacion_Nueva'].isna().sum()}")
     
