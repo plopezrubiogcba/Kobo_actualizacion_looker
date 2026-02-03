@@ -7,3 +7,5 @@ oauth2client
 openpyxl
 rtree
 python-dotenv
+sqlalchemy
+psycopg2-binary
