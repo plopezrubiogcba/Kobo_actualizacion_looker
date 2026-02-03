@@ -386,7 +386,7 @@ if __name__ == '__main__':
         'Turno', 'start', 'hora_start', 'end', 'today', 'username', 'deviceid',
         'Georreferenciación del punto', 'latitude', 'longitude',
         '_Georreferenciación del punto_altitude', '_Georreferenciación del punto_precision',
-        'Cantidad de personas en situación de calle observadas',
+        'Cantidad de personas en situación de calle observadas','La/s persona/s esta/n',
         'Características observables del punto', 'estructura', 'colchon',
         'Características observables del punto/Basura, ropa, bolsos, etc',
         'Características observables del punto/No se observan cosas',
