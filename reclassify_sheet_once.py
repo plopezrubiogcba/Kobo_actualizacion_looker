@@ -1,15 +1,16 @@
 """
-Script de Reclasificación Única - Google Sheets
-================================================
+Script de Reclasificación Única - Desde Google Sheets a Neon PostgreSQL
+========================================================================
 
 Este script descarga TODOS los datos del Google Sheet "puntos flash",
-aplica la nueva lógica de clasificación espacial en 3 pasos, y 
-REEMPLAZA completamente el contenido del sheet con los datos reclasificados.
+aplica la nueva lógica de clasificación espacial en 3 pasos, y
+SUBE los datos reclasificados SOLO a Neon PostgreSQL.
 
 IMPORTANTE:
-- Este script debe ejecutarse UNA SOLA VEZ
-- Hace BACKUP automático exportando a CSV antes de modificar
-- REEMPLAZA todos los datos del sheet
+- Este script debe ejecutarse UNA SOLA VEZ para cargar datos históricos
+- Hace BACKUP automático exportando a CSV antes de procesar
+- Lee de Google Sheets pero SOLO ESCRIBE a Neon PostgreSQL
+- NO modifica ni actualiza Google Sheets
 
 Clasificación en 3 pasos:
 1. Palermo Norte → 14.5
@@ -22,24 +23,29 @@ import geopandas as gpd
 from shapely.geometry import Point
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-from google.oauth2 import service_account
 import os
 import json
 import sys
 import re
 import zipfile
 from datetime import datetime
+from sqlalchemy import create_engine
+
+# Cargar variables de entorno desde .env
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 # Configuración Google Sheets
 NOMBRE_SPREADSHEET = "puntos flash"
 NOMBRE_HOJA = "Sheet4"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Configuración BigQuery
-PROJECT_ID = 'kobo-looker-connect'
-DATASET_ID = 'datos_flash'
-TABLE_ID = 'kobo_flash_consolidado'
-CREDENTIALS_PATH = 'kobo-looker-connect.json'
+# Configuración Neon PostgreSQL
+DATABASE_URL = os.environ.get("DATABASE_URL")
+NEON_TABLE_NAME = 'kobo_flash_consolidado'
 
 # Buscar archivos geográficos
 print("🔍 Buscando archivos geográficos...")
@@ -155,74 +161,57 @@ def clasificar_localizacion_3_pasos(df):
     
     return df
 
-def subir_a_bigquery(df):
+def subir_a_neon(df):
     """
-    Sube el DataFrame a Google BigQuery.
+    Sube el DataFrame a Neon PostgreSQL usando SQLAlchemy.
     Trabaja sobre una copia para no afectar los datos de Sheets.
-    Limpia nombres de columnas y sanitiza tipos para compatibilidad con BigQuery.
+    IMPORTANTE: Mantiene nombres de columnas EXACTOS (con tildes, espacios, etc.)
+    ya que PostgreSQL los soporta con comillas dobles.
     """
-    print("\n🔄 Preparando datos para BigQuery...")
+    print("\n🔄 Preparando datos para Neon PostgreSQL...")
     
-    # 1. Clonar DataFrame
-    df_bq = df.copy()
+    # 1. Validar DATABASE_URL
+    if not DATABASE_URL:
+        raise ValueError("DATABASE_URL no está configurada en las variables de entorno (.env)")
     
-    # 2. Limpieza de nombres de columnas para BigQuery
-    def limpiar_nombre_columna(nombre):
-        """Convierte nombres de columnas a formato compatible con BigQuery"""
-        if nombre is None:
-            return 'unnamed_column'
-        nombre = str(nombre)
-        nombre = re.sub(r'[ ./()]', '_', nombre)
-        nombre = re.sub(r'[^\w]', '_', nombre)
-        nombre = re.sub(r'_+', '_', nombre)
-        return nombre.strip('_').lower()
-    
-    df_bq.columns = [limpiar_nombre_columna(col) for col in df_bq.columns]
-    print(f"   ✅ Nombres de columnas limpiados para BigQuery")
+    # 2. Clonar DataFrame
+    df_neon = df.copy()
     
     # 3. Sanitización de tipos complejos (listas/diccionarios)
-    for col in df_bq.columns:
-        df_bq[col] = df_bq[col].apply(
+    # NOTA: NO limpiamos nombres de columnas porque Neon espera los nombres EXACTOS
+    for col in df_neon.columns:
+        df_neon[col] = df_neon[col].apply(
             lambda x: str(x) if isinstance(x, (list, dict)) else x
         )
     print(f"   ✅ Tipos de datos sanitizados")
     
-    # 4. Buscar archivo de credenciales
-    possible_names = ['kobo-looker-connect.json', 'credenciales.json', 'service_account.json']
-    ruta_creds = None
+    # 4. Crear engine de SQLAlchemy con SSL
+    print(f"   🔌 Conectando a Neon PostgreSQL...")
+    engine = create_engine(DATABASE_URL)
     
-    for name in possible_names:
-        for root, _, files in os.walk(BASE_DIR):
-            if name in files:
-                ruta_creds = os.path.join(root, name)
-                break
-        if ruta_creds:
-            break
+    # 5. Validar conexión
+    try:
+        with engine.connect() as connection:
+            print(f"   ✅ Conexión a Neon PostgreSQL exitosa (SSL habilitado)")
+    except Exception as e:
+        raise ConnectionError(f"Error al conectar con Neon PostgreSQL: {e}")
     
-    if not ruta_creds:
-        raise FileNotFoundError(f"No se encontró archivo de credenciales para BigQuery")
+    # 6. Carga a Neon PostgreSQL
+    print(f"   📤 Subiendo datos a tabla: {NEON_TABLE_NAME}")
+    print(f"   📋 Columnas a cargar: {len(df_neon.columns)}")
     
-    print(f"   ✅ Usando credenciales: {os.path.basename(ruta_creds)}")
-    
-    # 5. Autenticación con BigQuery
-    credentials = service_account.Credentials.from_service_account_file(
-        ruta_creds,
-        scopes=["https://www.googleapis.com/auth/bigquery"]
-    )
-    
-    # 6. Carga a BigQuery
-    table_full_id = f"{DATASET_ID}.{TABLE_ID}"
-    print(f"   📤 Subiendo a BigQuery: {PROJECT_ID}.{table_full_id}")
-    
-    df_bq.to_gbq(
-        destination_table=table_full_id,
-        project_id=PROJECT_ID,
-        credentials=credentials,
+    df_neon.to_sql(
+        name=NEON_TABLE_NAME,
+        con=engine,
         if_exists='replace',
-        progress_bar=False
+        index=False,
+        method='multi'
     )
     
-    print(f"   ✅ {len(df_bq)} registros cargados exitosamente a BigQuery")
+    print(f"   ✅ {len(df_neon)} registros cargados exitosamente a Neon PostgreSQL")
+    
+    # 7. Cerrar conexión
+    engine.dispose()
 
 def main():
     print("="*60)
@@ -296,15 +285,33 @@ def main():
     df.to_csv(backup_file, index=False)
     print(f"💾 Backup guardado: {backup_file}")
     
-    # Extraer coordenadas si están en columna geo_ref
-    if 'geo_ref/geo_punto' in df.columns:
-        split_coords = df['geo_ref/geo_punto'].astype(str).str.split(' ', expand=True)
+    # Extraer/detectar coordenadas - manejar diferentes formatos
+    print("\n🔍 Detectando columnas de coordenadas...")
+    
+    # Caso 1: Coordenadas ya están con nombres completos (datos de Google Sheets)
+    if '_Georreferenciación del punto_latitude' in df.columns and '_Georreferenciación del punto_longitude' in df.columns:
+        print("   ✅ Encontradas coordenadas con nombres completos")
+        df['latitude'] = df['_Georreferenciación del punto_latitude']
+        df['longitude'] = df['_Georreferenciación del punto_longitude']
+    
+    # Caso 2: Coordenadas simples (latitude/longitude directas)
+    elif 'latitude' in df.columns and 'longitude' in df.columns:
+        print("   ✅ Encontradas coordenadas simples")
+        # Ya están en el formato correcto
+    
+    # Caso 3: Formato Kobo crudo (geo_ref/geo_punto)
+    elif 'geo_ref/geo_punto' in df.columns or 'Georreferenciación del punto' in df.columns:
+        col_geo = 'geo_ref/geo_punto' if 'geo_ref/geo_punto' in df.columns else 'Georreferenciación del punto'
+        print(f"   ℹ️  Extrayendo coordenadas de columna: {col_geo}")
+        split_coords = df[col_geo].astype(str).str.split(' ', expand=True)
         if split_coords.shape[1] >= 2:
             df['latitude'] = pd.to_numeric(split_coords[0], errors='coerce')
             df['longitude'] = pd.to_numeric(split_coords[1], errors='coerce')
+            print("   ✅ Coordenadas extraídas exitosamente")
     
     if 'latitude' not in df.columns or 'longitude' not in df.columns:
-        print("❌ ERROR: No se encontraron columnas latitude/longitude")
+        print(f"\n❌ ERROR: No se pudieron detectar columnas de coordenadas")
+        print(f"   Columnas disponibles: {list(df.columns[:10])}...")
         sys.exit(1)
     
     # Eliminar filas sin coordenadas válidas
@@ -328,39 +335,72 @@ def main():
     else:
         df_reclasificado = df_reclasificado.rename(columns={'Localizacion_Nueva': 'Localizacion'})
     
-    # Convertir a object y reemplazar NaN con None para Google Sheets
+    # Aplicar renombrado de columnas para consistencia con main_act_flash.py
+    print("\n🔄 Estandarizando nombres de columnas...")
+    
+    # NOTA: Google Sheets ya contiene columnas con nombres "bonitos" del CSV export
+    # Solo necesitamos asegurar consistencia con los nombres exactos de Neon
+    rename_map = {
+        # Estos son mapeos de posibles variaciones en Google Sheets
+        'Georreferenciación del punto': 'Georreferenciación del punto',  # Ya está correcto
+        'Cantidad de personas en situación de calle observadas': 'Cantidad de personas en situación de calle observadas',  # Ya está correcto
+        'La/s persona/s esta/n': 'La/s persona/s esta/n',  # Campo histórico
+        'Ingrese número de documento del usuario que completa el formulario': 'Ingrese número de documento del usuario que completa el formulario',  # Campo histórico
+        'Ingrese solo los digitos de su documento': 'Ingrese solo los digitos de su documento',  # Campo histórico
+        
+        # Mapeos de nombres internos Kobo (si existen en el sheet)
+        'geo_ref/geo_punto': 'Georreferenciación del punto',
+        'datos_per/cant_pers': 'Cantidad de personas en situación de calle observadas',
+        'datos_per/sit_calle': 'La/s persona/s esta/n',
+        'datos_per/dni_operador': 'Ingrese número de documento del usuario que completa el formulario',
+        'caracteristicas_puntos/NNyA_observa': 'Se observan niños/as en el lugar',
+        'caracteristicas_puntos/caracteristicas_observada': 'En el lugar hay…',
+        
+        # Metadatos
+        '__version__': '_version_'
+    }
+    
+    # Aplicar renombrado solo para columnas que existan
+    existing_renames = {k: v for k, v in rename_map.items() if k in df_reclasificado.columns}
+    if existing_renames:
+        df_reclasificado.rename(columns=existing_renames, inplace=True)
+        print(f"   ✅ {len(existing_renames)} columnas renombradas")
+    
+    # Ahora renombrar las columnas temporales latitude/longitude a los nombres finales
+    # (solo si aún no existen con el nombre completo)
+    if 'latitude' in df_reclasificado.columns and '_Georreferenciación del punto_latitude' not in df_reclasificado.columns:
+        df_reclasificado.rename(columns={
+            'latitude': '_Georreferenciación del punto_latitude',
+            'longitude': '_Georreferenciación del punto_longitude'
+        }, inplace=True)
+        print("   ✅ Coordenadas renombradas a formato Neon")
+    
+    # NO FILTRAR COLUMNAS - Enviar TODAS las columnas disponibles a Neon
+    # (Neon se encargará de manejar columnas que no existan en la tabla)
+    print(f"   ✅ {len(df_reclasificado.columns)} columnas preparadas para Neon")
+    
+    # Convertir a object y reemplazar NaN con None
     df_final = df_reclasificado.astype(object)
     df_final = df_final.where(pd.notnull(df_final), None)
     
-    # Subir a Google Sheets
-    print("\n⬆️ Subiendo datos reclasificados al sheet...")
-    respuesta_final = input("¿Confirmas el reemplazo del sheet? (escribe 'SI'): ")
-    if respuesta_final.upper() != 'SI':
-        print("❌ Operación cancelada")
-        sys.exit(0)
-    
-    sheet.clear()
-    sheet.update(
-        values=[df_final.columns.values.tolist()] + df_final.values.tolist(),
-        value_input_option='USER_ENTERED'
-    )
-    
-    # Subir a BigQuery
-    print("\n📤 Subiendo a BigQuery...")
+    # Subir SOLO a Neon PostgreSQL (Google Sheets ya no se actualiza)
+    print("\n📤 Subiendo a Neon PostgreSQL...")
     try:
-        subir_a_bigquery(df_final)
-        print("   ✅ Carga a BigQuery exitosa")
+        subir_a_neon(df_final)
+        print("   ✅ Carga a Neon PostgreSQL exitosa")
     except Exception as e:
-        print(f"   ⚠️  Error en BigQuery (no crítico): {e}")
-        print(f"   ℹ️  Los datos en Google Sheets se actualizaron correctamente")
+        print(f"   ❌ Error en Neon PostgreSQL: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
     
     print("\n" + "="*60)
     print("✅ RECLASIFICACIÓN COMPLETADA EXITOSAMENTE")
     print("="*60)
     print(f"📁 Backup guardado en: {backup_file}")
     print(f"📊 Total registros procesados: {len(df_final)}")
-    print(f"📊 Tabla BigQuery: {PROJECT_ID}.{DATASET_ID}.{TABLE_ID}")
-    print("\n🎉 El Google Sheet y BigQuery han sido actualizados con la nueva clasificación")
+    print(f"📊 Tabla Neon PostgreSQL: {NEON_TABLE_NAME}")
+    print("\n🎉 Los datos han sido cargados a Neon PostgreSQL con la nueva clasificación")
 
 if __name__ == '__main__':
     try:

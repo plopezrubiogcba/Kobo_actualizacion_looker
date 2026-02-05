@@ -1,0 +1,47 @@
+COMPARACIÓN DETALLADA: CSV vs API
+======================================================================
+
+Total columnas CSV: 34
+Total columnas API: 25
+Diferencia: 9
+
+
+COLUMNAS SOLO EN CSV:
+----------------------------------------------------------------------
+  - Cantidad de personas en situación de calle observadas
+  - En el lugar hay…
+  - En el lugar hay…/Basura, ropa, bolsos, etc
+  - En el lugar hay…/Bolsos y/o bolsas
+  - En el lugar hay…/Carro para transportar cosas (Cartoneros)
+  - En el lugar hay…/Colchón/es
+  - En el lugar hay…/Con estructura tipo carpa o refugio
+  - En el lugar hay…/No se observa nada de lo anterior
+  - En el lugar hay…/Otro materiales acumulados (Cartón, chatarras, etc.)
+  - En el lugar hay…/Silla de ruedas, carrito de bebé
+  - Georreferenciación del punto
+  - Ingrese número de documento del usuario que completa el formulario
+  - Ingrese solo los digitos de su documento
+  - La/s persona/s esta/n
+  - Se observan niños/as en el lugar
+  - _Georreferenciación del punto_altitude
+  - _Georreferenciación del punto_latitude
+  - _Georreferenciación del punto_longitude
+  - _Georreferenciación del punto_precision
+  - _index
+  - _validation_status
+
+
+COLUMNAS SOLO EN API:
+----------------------------------------------------------------------
+  - _attachments
+  - _geolocation
+  - _xform_id_string
+  - caracteristicas_puntos/NNyA_observa
+  - caracteristicas_puntos/caracteristicas_observada
+  - datos_per/cant_pers
+  - datos_per/dni_operador
+  - datos_per/sit_calle
+  - formhub/uuid
+  - geo_ref/geo_punto
+  - meta/instanceID
+  - meta/rootUuid

@@ -24,9 +24,11 @@ try:
 except ImportError:
     pass  # python-dotenv no instalado, usar solo variables del sistema
 
-TOKEN_KOBO = os.environ.get("KOBO_TOKEN", "b6a9c8897db4c180b9eff560e890edfb394313db")
+TOKEN_KOBO = os.environ.get("KOBO_API_TOKEN", "b6a9c8897db4c180b9eff560e890edfb394313db")
 UID_KOBO = "aH2SygyBTRCkqCgBtu4m3R"
-URL_KOBO = f"https://kf.kobotoolbox.org/api/v2/assets/{UID_KOBO}/data.json"
+KOBO_BASE_URL = os.environ.get("KOBO_BASE_URL", "https://kf.kobotoolbox.org")
+URL_KOBO = f"{KOBO_BASE_URL}/api/v2/assets/{UID_KOBO}/data.json"
+URL_KOBO_ASSET = f"{KOBO_BASE_URL}/api/v2/assets/{UID_KOBO}/"
 
 # GOOGLE SHEETS
 NOMBRE_SPREADSHEET = "puntos flash"
@@ -63,7 +65,195 @@ if not RUTA_KMZ_PALERMO or not RUTA_KML_ANILLO_DIGITAL or not RUTA_SHP_COMUNAS:
     sys.exit(1)
 
 
-# --- 3. FUNCIONES DE LÓGICA DE NEGOCIO ---
+# --- 3. FUNCIONES DE EXTRACCIÓN COMPLETA DE KOBO ---
+
+def obtener_schema_kobo():
+    """
+    Obtiene el schema completo del formulario Kobo para saber qué campos esperar
+    """
+    try:
+        headers = {"Authorization": f"Token {TOKEN_KOBO}"}
+        response = requests.get(URL_KOBO_ASSET, headers=headers)
+        response.raise_for_status()
+        asset_data = response.json()
+        return asset_data.get('content', {})
+    except Exception as e:
+        print(f"⚠️  No se pudo obtener schema de Kobo: {e}")
+        return {}
+
+def expandir_geopoint(df, geopoint_col):
+    """
+    Expande una columna geopoint en latitude, longitude, altitude, precision
+    Formato Kobo: "lat lon alt precision"
+    """
+    if geopoint_col not in df.columns:
+        return df
+    
+    # Separar el string "lat lon alt precision"
+    coords = df[geopoint_col].astype(str).str.split(' ', expand=True)
+    
+    if coords.shape[1] >= 2:
+        # Crear nombres de columnas basados en el nombre original
+        base_name = geopoint_col.replace('/', '_')
+        
+        df['latitude'] = pd.to_numeric(coords[0], errors='coerce')
+        df['longitude'] = pd.to_numeric(coords[1], errors='coerce')
+        
+        if coords.shape[1] >= 3:
+            df[f'_{base_name}_altitude'] = pd.to_numeric(coords[2], errors='coerce')
+        if coords.shape[1] >= 4:
+            df[f'_{base_name}_precision'] = pd.to_numeric(coords[3], errors='coerce')
+    
+    return df
+
+def expandir_select_multiple(df, schema, col_name):
+    """
+    Expande un campo select_multiple en columnas booleanas
+    
+    Ej: 'caracteristicas_puntos/en_lugar_hay' = 'estructura colchon basura'
+    Se convierte en:
+    - caracteristicas_puntos/estructura_carpa_refugio = True
+    - caracteristicas_puntos/colchon_es = True
+    - etc.
+    """
+    if not schema or col_name not in df.columns:
+        return df
+    
+    # Buscar información del campo en el schema
+    survey = schema.get('survey', [])
+    field_name = col_name.split('/')[-1]
+    field_info = next((q for q in survey if q.get('name') == field_name), None)
+    
+    if not field_info or field_info.get('type') != 'select_multiple':
+        return df
+    
+    # Obtener las opciones (choices)
+    choice_list_name = field_info.get('select_from_list_name') or field_info.get('list_name')
+    if not choice_list_name:
+        return df
+    
+    choices = schema.get('choices', [])
+    relevant_choices = [c for c in choices if c.get('list_name') == choice_list_name]
+    
+    # Crear columna booleana para cada opción
+    for choice in relevant_choices:
+        choice_name = choice.get('name')
+        if not choice_name:
+            continue
+        
+        # Crear nombre de columna siguiendo patrón de Kobo
+        col_bool_name = f"{col_name}/{choice_name}"
+        
+        # Verificar si el valor está presente en la respuesta
+        df[col_bool_name] = df[col_name].astype(str).str.contains(
+            r'\b' + re.escape(choice_name) + r'\b',
+            regex=True,
+            na=False
+        )
+    
+    return df
+
+def asegurar_columnas_schema(df, schema):
+    """
+    Asegura que TODAS las columnas del formulario existan en el DataFrame,
+    incluso si no tienen datos en ningún registro
+    """
+    if not schema:
+        return df
+    
+    survey = schema.get('survey', [])
+    choices = schema.get('choices', [])
+    
+    for question in survey:
+        field_name = question.get('name')
+        field_type = question.get('type')
+        
+        if not field_name:
+            continue
+        
+        # Para select_multiple, crear subcampos
+        if field_type == 'select_multiple':
+            choice_list_name = question.get('select_from_list_name') or question.get('list_name')
+            if choice_list_name:
+                relevant_choices = [c for c in choices if c.get('list_name') == choice_list_name]
+                for choice in relevant_choices:
+                    choice_name = choice.get('name')
+                    if choice_name:
+                        col_name = f"{field_name}/{choice_name}"
+                        # Buscar por nombre final (puede tener prefijo de grupo)
+                        matching_cols = [c for c in df.columns if c.endswith(f"/{field_name}/{choice_name}") or c == col_name]
+                        if not matching_cols and col_name not in df.columns:
+                            df[col_name] = False
+                            print(f"  ℹ️  Columna booleana creada (sin datos): {col_name}")
+    
+    return df
+
+def extraer_kobo_completo():
+    """
+    Extrae TODOS los datos de Kobo con todas las columnas expandidas:
+    - Geopoints separados en lat/lon/alt/precision
+    - Select_multiple expandidos en columnas booleanas
+    - Todas las columnas del schema incluidas
+    """
+    print("📋 EXTRACCIÓN COMPLETA DE KOBO")
+    headers = {"Authorization": f"Token {TOKEN_KOBO}"}
+    
+    # 1. Obtener schema del formulario
+    print("  📂 Obteniendo schema del formulario...")
+    schema = obtener_schema_kobo()
+    
+    # 2. Obtener datos
+    print("  📥 Descargando submissions...")
+    try:
+        response = requests.get(URL_KOBO, headers=headers, params={'query': '{}'})
+        response.raise_for_status()
+        submissions = response.json()['results']
+        
+        if not submissions:
+            print("  ⚠️  No hay submissions en Kobo")
+            return pd.DataFrame()
+        
+        # 3. Normalizar JSON (expandir anidación completa)
+        print("  🔄 Normalizando datos...")
+        df = pd.json_normalize(submissions, max_level=None, sep='/')
+        print(f"  ✅ Columnas base extraídas: {len(df.columns)}")
+        
+        # 4. Expandir geopoints
+        print("  🗺️  Expandiendo geopoints...")
+        if schema:
+            for question in schema.get('survey', []):
+                if question.get('type') == 'geopoint':
+                    field_name = question.get('name')
+                    # Buscar columnas que terminen con este nombre
+                    matching_cols = [col for col in df.columns if col.endswith(f"/{field_name}") or col == field_name]
+                    for col in matching_cols:
+                        df = expandir_geopoint(df, col)
+                        print(f"    ✅ Geopoint expandido: {col}")
+        
+        # 5. Expandir select_multiple
+        print("  ☑️  Expandiendo select_multiple...")
+        if schema:
+            for question in schema.get('survey', []):
+                if question.get('type') == 'select_multiple':
+                    field_name = question.get('name')
+                    matching_cols = [col for col in df.columns if col.endswith(f"/{field_name}") or col == field_name]
+                    for col in matching_cols:
+                        df = expandir_select_multiple(df, schema, col)
+                        print(f"    ✅ Select_multiple expandido: {col}")
+        
+        # 6. Asegurar columnas del schema
+        print("  📋 Asegurando columnas completas...")
+        df = asegurar_columnas_schema(df, schema)
+        
+        print(f"\n  🎉 Extracción completa: {len(df)} registros, {len(df.columns)} columnas")
+        return df
+        
+    except Exception as e:
+        print(f"  ❌ Error en extracción: {e}")
+        raise
+
+
+# --- 4. FUNCIONES DE LÓGICA DE NEGOCIO ---
 
 def asignar_turno(fecha):
     if pd.isnull(fecha): return None
@@ -138,7 +328,8 @@ def subir_a_neon(df):
     """
     Sube el DataFrame a Neon PostgreSQL usando SQLAlchemy.
     Trabaja sobre una copia para no afectar los datos de Sheets.
-    Limpia nombres de columnas y sanitiza tipos para compatibilidad con PostgreSQL.
+    IMPORTANTE: Mantiene nombres de columnas EXACTOS (con tildes, espacios, etc.)
+    ya que PostgreSQL los soporta con comillas dobles.
     """
     print("--- Preparando datos para Neon PostgreSQL ---")
     
@@ -149,45 +340,28 @@ def subir_a_neon(df):
     # 2. Clonar DataFrame
     df_neon = df.copy()
     
-    # 3. Limpieza de nombres de columnas para PostgreSQL
-    def limpiar_nombre_columna(nombre):
-        """Convierte nombres de columnas a formato compatible con PostgreSQL"""
-        if nombre is None:
-            return 'unnamed_column'
-        # Convertir a string si no lo es
-        nombre = str(nombre)
-        # Reemplazar espacios, puntos, barras, paréntesis por guiones bajos
-        nombre = re.sub(r'[ ./()]', '_', nombre)
-        # Eliminar caracteres especiales adicionales
-        nombre = re.sub(r'[^\w]', '_', nombre)
-        # Evitar guiones bajos múltiples
-        nombre = re.sub(r'_+', '_', nombre)
-        # Quitar guiones bajos al inicio/final y convertir a minúsculas
-        return nombre.strip('_').lower()
-    
-    df_neon.columns = [limpiar_nombre_columna(col) for col in df_neon.columns]
-    print(f"   ✅ Nombres de columnas limpiados para PostgreSQL")
-    
-    # 4. Sanitización de tipos complejos (listas/diccionarios)
+    # 3. Sanitización de tipos complejos (listas/diccionarios)
+    # NOTA: NO limpiamos nombres de columnas porque Neon espera los nombres EXACTOS
     for col in df_neon.columns:
         df_neon[col] = df_neon[col].apply(
             lambda x: str(x) if isinstance(x, (list, dict)) else x
         )
     print(f"   ✅ Tipos de datos sanitizados")
     
-    # 5. Crear engine de SQLAlchemy con SSL
+    # 4. Crear engine de SQLAlchemy con SSL
     print(f"   🔌 Conectando a Neon PostgreSQL...")
     engine = create_engine(DATABASE_URL)
     
-    # 6. Validar conexión
+    # 5. Validar conexión
     try:
         with engine.connect() as connection:
             print(f"   ✅ Conexión a Neon PostgreSQL exitosa (SSL habilitado)")
     except Exception as e:
         raise ConnectionError(f"Error al conectar con Neon PostgreSQL: {e}")
     
-    # 7. Carga a Neon PostgreSQL
+    # 6. Carga a Neon PostgreSQL
     print(f"   📤 Subiendo datos a tabla: {NEON_TABLE_NAME}")
+    print(f"   📋 Columnas a cargar: {len(df_neon.columns)}")
     
     df_neon.to_sql(
         name=NEON_TABLE_NAME,
@@ -199,7 +373,7 @@ def subir_a_neon(df):
     
     print(f"   ✅ {len(df_neon)} registros cargados exitosamente a Neon PostgreSQL")
     
-    # 8. Cerrar conexión
+    # 7. Cerrar conexión
     engine.dispose()
 
 def asignar_recorrido(gdf, poligonos):
@@ -288,20 +462,19 @@ def procesar_datos_geoespaciales_total(df_kobo):
 # --- 4. MAIN EJECUCIÓN ---
 
 if __name__ == '__main__':
-    print(">>> INICIO DE PROCESO INTEGRADO (ESTRICTO + JSON COMPLIANT) <<<")
+    print(">>> INICIO DE PROCESO INTEGRADO (EXTRACCIÓN COMPLETA KOBO) <<<")
     
-    # 1. KOBO
-    print("1. Descargando Kobo Completo...")
-    headers = {"Authorization": f"Token {TOKEN_KOBO}"}
+    # 1. KOBO - EXTRACCIÓN COMPLETA
+    print("\n1. Descargando datos completos de Kobo...")
     try:
-        resp = requests.get(URL_KOBO, headers=headers)
-        resp.raise_for_status()
-        df_raw = pd.json_normalize(resp.json()['results'])
+        df_raw = extraer_kobo_completo()
     except Exception as e:
-        print(f"Error Kobo: {e}")
+        print(f"❌ Error en extracción de Kobo: {e}")
         sys.exit(1)
 
-    if df_raw.empty: sys.exit(0)
+    if df_raw.empty:
+        print(">>> No hay datos en Kobo <<<")
+        sys.exit(0)
 
     # 2. PROCESAR GEOESPACIALMENTE
     print("2. Procesando lógica geoespacial...")
@@ -364,32 +537,82 @@ if __name__ == '__main__':
     
     df_nuevos_final['hora_start'] = df_nuevos_final['start'].dt.strftime('%H:%M:%S')
     df_nuevos_final['start'] = df_nuevos_final['start'].dt.strftime('%Y-%m-%d')
-
+    
     rename_map = {
-        'geo_ref/geo_punto': 'Georreferenciación del punto',
-        'datos_per/cant_pers': 'Cantidad de personas en situación de calle observadas',
-        'caracteristicas_puntos/caracteristicas_observada': 'Características observables del punto',
-        'caracteristicas_puntos/estructura': 'estructura',
-        'caracteristicas_puntos/colchon': 'colchon', 
-        'caracteristicas_puntos/NNyA_observa': 'Se observan niños/as en el punto'
-    }
+    'geo_ref/geo_punto': 'Georreferenciación del punto',
+    'latitude': '_Georreferenciación del punto_latitude',
+    'longitude': '_Georreferenciación del punto_longitude',
+    
+    'datos_per/cant_pers': 'Cantidad de personas en situación de calle observadas',
+    'datos_per/personas_estado': 'La/s persona/s esta/n',
+    'datos_per/doc_usuario': 'Ingrese número de documento del usuario que completa el formulario',
+    'datos_per/doc_digitos': 'Ingrese solo los digitos de su documento',
+
+    'caracteristicas_puntos/caracteristicas_observada': 'Características observables del punto',
+    'caracteristicas_puntos/estructura': 'estructura',
+    'caracteristicas_puntos/colchon': 'colchon',
+    'caracteristicas_puntos/NNyA_observa': 'Se observan niños/as en el lugar',
+
+    'caracteristicas_puntos/en_lugar_hay': 'En el lugar hay…',
+    'caracteristicas_puntos/estructura_carpa_refugio': 'En el lugar hay…/Con estructura tipo carpa o refugio',
+    'caracteristicas_puntos/colchon_es': 'En el lugar hay…/Colchón/es',
+    'caracteristicas_puntos/basura_ropa_bolsos': 'En el lugar hay…/Basura, ropa, bolsos, etc',
+    'caracteristicas_puntos/no_se_observa': 'En el lugar hay…/No se observa nada de lo anterior',
+    'caracteristicas_puntos/bolsos_bolsas': 'En el lugar hay…/Bolsos y/o bolsas',
+    'caracteristicas_puntos/materiales_acumulados': 'En el lugar hay…/Otro materiales acumulados (Cartón, chatarras, etc.)',
+    'caracteristicas_puntos/silla_ruedas_carrito': 'En el lugar hay…/Silla de ruedas, carrito de bebé',
+    'caracteristicas_puntos/carro_cartonero': 'En el lugar hay…/Carro para transportar cosas (Cartoneros)',
+    
+    '__version__': '_version_'
+}
+
     df_nuevos_final.rename(columns=rename_map, inplace=True)
 
     columnas_deseadas = [
-        'Turno', 'start', 'hora_start', 'end', 'today', 'username', 'deviceid',
-        'Georreferenciación del punto', 'latitude', 'longitude',
-        '_Georreferenciación del punto_altitude', '_Georreferenciación del punto_precision',
-        'Cantidad de personas en situación de calle observadas','La/s persona/s esta/n',
-        'Características observables del punto', 'estructura', 'colchon',
-        'Características observables del punto/Basura, ropa, bolsos, etc',
-        'Características observables del punto/No se observan cosas',
-        'Se observan niños/as en el punto', '_id', '_uuid', '_submission_time', 
-        '_validation_status', '_notes', '_status', '_submitted_by', '__version__', 
-        '_tags', '_index', 'Poligono', 'Localizacion'
-    ]
+    # Columnas base de Kobo
+    'start', 'end', 'today', 'username', 'deviceid',
+    
+    # Georreferenciación (NEON requiere nombres con prefijo completo)
+    'Georreferenciación del punto',
+    '_Georreferenciación del punto_latitude',
+    '_Georreferenciación del punto_longitude',
+    '_Georreferenciación del punto_altitude',
+    '_Georreferenciación del punto_precision',
+    
+    # Datos de personas
+    'Ingrese número de documento del usuario que completa el formulario',
+    'Cantidad de personas en situación de calle observadas',
+    'La/s persona/s esta/n',
+
+    # En el lugar hay… (todas las variantes)
+    'En el lugar hay…',
+    'En el lugar hay…/Con estructura tipo carpa o refugio',
+    'En el lugar hay…/Colchón/es',
+    'En el lugar hay…/Basura, ropa, bolsos, etc',
+    'En el lugar hay…/No se observa nada de lo anterior',
+    'En el lugar hay…/Bolsos y/o bolsas',
+    'En el lugar hay…/Otro materiales acumulados (Cartón, chatarras, etc.)',
+    'En el lugar hay…/Silla de ruedas, carrito de bebé',
+    'En el lugar hay…/Carro para transportar cosas (Cartoneros)',
+
+    # Observación de niños/as (nombre correcto según Neon)
+    'Se observan niños/as en el lugar',
+    
+    # Documento adicional
+    'Ingrese solo los digitos de su documento',
+
+    # Metadatos de Kobo (según esquema Neon)
+    '_id', '_uuid', '_submission_time',
+    '_validation_status', '_notes', '_status', '_submitted_by', '_version_',
+    '_tags', '_index',
+    
+    # Columnas calculadas por el script (no en tabla Neon original, pero útiles)
+    'Turno', 'hora_start', 'Poligono', 'Localizacion'
+]
+    print(f'DEVOLVER ESTO{df_nuevos_final.columns.tolist()}')
     
     df_final = df_nuevos_final.reindex(columns=columnas_deseadas)
-
+    
     # FORMATO: Numéricos (Float)
     cols_float = ['latitude', 'longitude', '_Georreferenciación del punto_altitude', '_Georreferenciación del punto_precision']
     for col in cols_float:

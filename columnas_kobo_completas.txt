@@ -1,0 +1,39 @@
+COLUMNAS COMPLETAS DE KOBO
+======================================================================
+
+1. __version__
+2. _attachments
+3. _geo_ref_geo_punto_altitude
+4. _geo_ref_geo_punto_precision
+5. _geolocation
+6. _id
+7. _notes
+8. _status
+9. _submission_time
+10. _submitted_by
+11. _tags
+12. _uuid
+13. _xform_id_string
+14. caracteristicas_puntos/NNyA_observa
+15. caracteristicas_puntos/caracteristicas_observada
+16. caracteristicas_puntos/caracteristicas_observada/1
+17. caracteristicas_puntos/caracteristicas_observada/2
+18. caracteristicas_puntos/caracteristicas_observada/4
+19. caracteristicas_puntos/caracteristicas_observada/5
+20. caracteristicas_puntos/caracteristicas_observada/6
+21. caracteristicas_puntos/caracteristicas_observada/7
+22. caracteristicas_puntos/caracteristicas_observada/8
+23. datos_per/cant_pers
+24. datos_per/dni_operador
+25. datos_per/sit_calle
+26. deviceid
+27. end
+28. formhub/uuid
+29. geo_ref/geo_punto
+30. latitude
+31. longitude
+32. meta/instanceID
+33. meta/rootUuid
+34. start
+35. today
+36. username

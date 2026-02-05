@@ -1,0 +1,28 @@
+COLUMNAS DEL API (nombres internos)
+======================================================================
+
+1. _id
+2. formhub/uuid
+3. start
+4. end
+5. today
+6. username
+7. deviceid
+8. geo_ref/geo_punto
+9. datos_per/cant_pers
+10. caracteristicas_puntos/caracteristicas_observada
+11. caracteristicas_puntos/NNyA_observa
+12. __version__
+13. meta/instanceID
+14. _xform_id_string
+15. _uuid
+16. meta/rootUuid
+17. _attachments
+18. _status
+19. _geolocation
+20. _submission_time
+21. _tags
+22. _notes
+23. _submitted_by
+24. datos_per/sit_calle
+25. datos_per/dni_operador

@@ -1,0 +1,37 @@
+COLUMNAS DEL CSV EXPORTADO (con labels)
+======================================================================
+
+1. start
+2. end
+3. today
+4. username
+5. deviceid
+6. Georreferenciación del punto
+7. _Georreferenciación del punto_latitude
+8. _Georreferenciación del punto_longitude
+9. _Georreferenciación del punto_altitude
+10. _Georreferenciación del punto_precision
+11. Ingrese número de documento del usuario que completa el formulario
+12. Cantidad de personas en situación de calle observadas
+13. La/s persona/s esta/n
+14. En el lugar hay…
+15. En el lugar hay…/Con estructura tipo carpa o refugio
+16. En el lugar hay…/Colchón/es
+17. En el lugar hay…/Basura, ropa, bolsos, etc
+18. En el lugar hay…/No se observa nada de lo anterior
+19. En el lugar hay…/Bolsos y/o bolsas
+20. En el lugar hay…/Otro materiales acumulados (Cartón, chatarras, etc.)
+21. En el lugar hay…/Silla de ruedas, carrito de bebé
+22. En el lugar hay…/Carro para transportar cosas (Cartoneros)
+23. Se observan niños/as en el lugar
+24. Ingrese solo los digitos de su documento
+25. _id
+26. _uuid
+27. _submission_time
+28. _validation_status
+29. _notes
+30. _status
+31. _submitted_by
+32. __version__
+33. _tags
+34. _index

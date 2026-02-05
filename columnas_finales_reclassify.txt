@@ -1,0 +1,25 @@
+COLUMNAS FINALES PARA NEON
+======================================================================
+
+1. start
+2. end
+3. today
+4. username
+5. deviceid
+6. Georreferenciación del punto
+7. _Georreferenciación del punto_latitude
+8. _Georreferenciación del punto_longitude
+9. _Georreferenciación del punto_altitude
+10. _Georreferenciación del punto_precision
+11. Ingrese número de documento del usuario que completa el formulario
+12. Cantidad de personas en situación de calle observadas
+13. La/s persona/s esta/n
+14. En el lugar hay…
+15. En el lugar hay…/Con estructura tipo carpa o refugio
+16. En el lugar hay…/Colchón/es
+17. En el lugar hay…/Basura, ropa, bolsos, etc
+18. En el lugar hay…/No se observa nada de lo anterior
+19. En el lugar hay…/Bolsos y/o bolsas
+20. En el lugar hay…/Otro materiales acumulados (Cartón, chatarras, etc.)
+21. En el lugar hay…/Silla de ruedas, carrito de bebé
+22. En el lugar hay…/Carro para transportar cosas (Cartoneros)
