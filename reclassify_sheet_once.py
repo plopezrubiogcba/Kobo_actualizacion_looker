@@ -35,11 +35,15 @@ NOMBRE_SPREADSHEET = "puntos flash"
 NOMBRE_HOJA = "Sheet4"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Configuración BigQuery
-PROJECT_ID = 'kobo-looker-connect'
-DATASET_ID = 'datos_flash'
-TABLE_ID = 'kobo_flash_consolidado'
-CREDENTIALS_PATH = 'kobo-looker-connect.json'
+from sqlalchemy import create_engine
+
+# Configuración Neon PostgreSQL
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    # Fallback si no está en entorno (aunque debería estar)
+    print("⚠️ ADVERTENCIA: DATABASE_URL no encontrada en variables de entorno")
+
+NEON_TABLE_NAME = 'kobo_flash_consolidado'
 
 # Buscar archivos geográficos
 print("🔍 Buscando archivos geográficos...")
@@ -155,74 +159,54 @@ def clasificar_localizacion_3_pasos(df):
     
     return df
 
-def subir_a_bigquery(df):
+def subir_a_neon(df):
     """
-    Sube el DataFrame a Google BigQuery.
+    Sube el DataFrame a Neon PostgreSQL usando SQLAlchemy.
     Trabaja sobre una copia para no afectar los datos de Sheets.
-    Limpia nombres de columnas y sanitiza tipos para compatibilidad con BigQuery.
+    IMPORTANTE: Mantiene nombres de columnas EXACTOS (con tildes, espacios, etc.)
+    ya que PostgreSQL los soporta con comillas dobles.
     """
-    print("\n🔄 Preparando datos para BigQuery...")
+    print("\n🔄 Preparando datos para Neon PostgreSQL...")
     
-    # 1. Clonar DataFrame
-    df_bq = df.copy()
+    # 1. Validar DATABASE_URL
+    if not DATABASE_URL:
+        raise ValueError("DATABASE_URL no está configurada en las variables de entorno (.env)")
     
-    # 2. Limpieza de nombres de columnas para BigQuery
-    def limpiar_nombre_columna(nombre):
-        """Convierte nombres de columnas a formato compatible con BigQuery"""
-        if nombre is None:
-            return 'unnamed_column'
-        nombre = str(nombre)
-        nombre = re.sub(r'[ ./()]', '_', nombre)
-        nombre = re.sub(r'[^\w]', '_', nombre)
-        nombre = re.sub(r'_+', '_', nombre)
-        return nombre.strip('_').lower()
-    
-    df_bq.columns = [limpiar_nombre_columna(col) for col in df_bq.columns]
-    print(f"   ✅ Nombres de columnas limpiados para BigQuery")
+    # 2. Clonar DataFrame
+    df_neon = df.copy()
     
     # 3. Sanitización de tipos complejos (listas/diccionarios)
-    for col in df_bq.columns:
-        df_bq[col] = df_bq[col].apply(
+    # NOTA: NO limpiamos nombres de columnas porque Neon espera los nombres EXACTOS
+    for col in df_neon.columns:
+        df_neon[col] = df_neon[col].apply(
             lambda x: str(x) if isinstance(x, (list, dict)) else x
         )
     print(f"   ✅ Tipos de datos sanitizados")
     
-    # 4. Buscar archivo de credenciales
-    possible_names = ['kobo-looker-connect.json', 'credenciales.json', 'service_account.json']
-    ruta_creds = None
+    # 4. Crear engine de SQLAlchemy con SSL
+    print(f"   🔌 Conectando a Neon PostgreSQL...")
+    engine = create_engine(DATABASE_URL)
     
-    for name in possible_names:
-        for root, _, files in os.walk(BASE_DIR):
-            if name in files:
-                ruta_creds = os.path.join(root, name)
-                break
-        if ruta_creds:
-            break
+    # 5. Validar conexión
+    try:
+        with engine.connect() as connection:
+            print(f"   ✅ Conexión a Neon PostgreSQL exitosa (SSL habilitado)")
+    except Exception as e:
+        raise ConnectionError(f"Error al conectar con Neon PostgreSQL: {e}")
     
-    if not ruta_creds:
-        raise FileNotFoundError(f"No se encontró archivo de credenciales para BigQuery")
+    # 6. Carga a Neon PostgreSQL
+    print(f"   📤 Subiendo datos a tabla: {NEON_TABLE_NAME}")
+    print(f"   📋 Columnas a cargar: {len(df_neon.columns)}")
     
-    print(f"   ✅ Usando credenciales: {os.path.basename(ruta_creds)}")
-    
-    # 5. Autenticación con BigQuery
-    credentials = service_account.Credentials.from_service_account_file(
-        ruta_creds,
-        scopes=["https://www.googleapis.com/auth/bigquery"]
-    )
-    
-    # 6. Carga a BigQuery
-    table_full_id = f"{DATASET_ID}.{TABLE_ID}"
-    print(f"   📤 Subiendo a BigQuery: {PROJECT_ID}.{table_full_id}")
-    
-    df_bq.to_gbq(
-        destination_table=table_full_id,
-        project_id=PROJECT_ID,
-        credentials=credentials,
+    df_neon.to_sql(
+        name=NEON_TABLE_NAME,
+        con=engine,
         if_exists='replace',
-        progress_bar=False
+        index=False,
+        method='multi'
     )
     
-    print(f"   ✅ {len(df_bq)} registros cargados exitosamente a BigQuery")
+    print(f"   ✅ {len(df_neon)} registros cargados exitosamente a Neon PostgreSQL")
 
 def main():
     print("="*60)
@@ -345,13 +329,13 @@ def main():
         value_input_option='USER_ENTERED'
     )
     
-    # Subir a BigQuery
-    print("\n📤 Subiendo a BigQuery...")
+    # Subir a Neon PostgreSQL
+    print("\n📤 Subiendo a Neon PostgreSQL...")
     try:
-        subir_a_bigquery(df_final)
-        print("   ✅ Carga a BigQuery exitosa")
+        subir_a_neon(df_final)
+        print("   ✅ Carga a Neon PostgreSQL exitosa")
     except Exception as e:
-        print(f"   ⚠️  Error en BigQuery (no crítico): {e}")
+        print(f"   ⚠️  Error en Neon PostgreSQL (no crítico): {e}")
         print(f"   ℹ️  Los datos en Google Sheets se actualizaron correctamente")
     
     print("\n" + "="*60)
@@ -359,8 +343,8 @@ def main():
     print("="*60)
     print(f"📁 Backup guardado en: {backup_file}")
     print(f"📊 Total registros procesados: {len(df_final)}")
-    print(f"📊 Tabla BigQuery: {PROJECT_ID}.{DATASET_ID}.{TABLE_ID}")
-    print("\n🎉 El Google Sheet y BigQuery han sido actualizados con la nueva clasificación")
+    print(f"📊 Tabla Neon: {NEON_TABLE_NAME}")
+    print("\n🎉 El Google Sheet y Neon PostgreSQL han sido actualizados con la nueva clasificación")
 
 if __name__ == '__main__':
     try:
