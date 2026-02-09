@@ -13,17 +13,13 @@ import re
 import zipfile
 
 from sqlalchemy import create_engine
+from dotenv import load_dotenv
 
 # --- 1. CONFIGURACIÓN GLOBAL ---
 # Modificacion desde vscode
 
-# Cargar variables de entorno desde .env si existe (para ejecución local)
-try:
-    from dotenv import load_dotenv
-    load_dotenv()  # Busca .env en el directorio actual
-    print("✅ Variables de .env cargadas")
-except ImportError:
-    pass  # python-dotenv no instalado, usar solo variables del sistema
+# Cargar variables de entorno desde .env
+load_dotenv()
 
 TOKEN_KOBO = os.environ.get("KOBO_TOKEN", "b6a9c8897db4c180b9eff560e890edfb394313db")
 UID_KOBO = "aH2SygyBTRCkqCgBtu4m3R"
@@ -37,13 +33,14 @@ NOMBRE_HOJA = "Sheet4"
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
     print("⚠️ ADVERTENCIA: DATABASE_URL no encontrada en variables de entorno")
+else:
+    print("✅ DATABASE_URL cargada correctamente")
 
 NEON_TABLE_NAME = 'kobo_flash_consolidado'
 
 # --- 2. BÚSQUEDA AUTOMÁTICA DE ARCHIVOS LOCALES ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RUTA_KMZ_PALERMO = None
-RUTA_KML_ANILLO_DIGITAL = None
 RUTA_SHP_COMUNAS = None
 
 print(f"--- Buscando archivos en: {BASE_DIR} ---")
@@ -54,15 +51,11 @@ for root, dirs, files in os.walk(BASE_DIR):
             RUTA_KMZ_PALERMO = os.path.join(root, file)
             print(f"   ✅ KMZ Palermo Norte encontrado: {RUTA_KMZ_PALERMO}")
         
-        if 'anillo_digital' in file.lower() and file.lower().endswith('.kmz'):
-            RUTA_KML_ANILLO_DIGITAL = os.path.join(root, file)
-            print(f"   ✅ KML Anillo Digital encontrado: {RUTA_KML_ANILLO_DIGITAL}")
-        
         if file.lower() == 'comunas.shp':
             RUTA_SHP_COMUNAS = os.path.join(root, file)
             print(f"   ✅ SHP encontrado: {RUTA_SHP_COMUNAS}")
 
-if not RUTA_KMZ_PALERMO or not RUTA_KML_ANILLO_DIGITAL or not RUTA_SHP_COMUNAS:
+if not RUTA_KMZ_PALERMO or not RUTA_SHP_COMUNAS:
     print("\n❌ ERROR CRÍTICO: Faltan archivos en el GitHub.")
     sys.exit(1)
 
@@ -78,19 +71,17 @@ def asignar_turno(fecha):
     elif h >= 22 or h < 3: return "TN"
     else: return None
 
-def clasificar_localizacion(puntos_gdf, palermo_gdf, anillo_digital_gdf, comunas_gdf):
+def clasificar_localizacion(puntos_gdf, palermo_gdf, comunas_gdf):
     """
-    Clasifica los puntos en 3 pasos secuenciales:
+    Clasifica los puntos en 2 pasos secuenciales:
     1. Palermo Norte -> 14.5
-    2. Anillo Digital C2 -> 2.5
-    3. Comunas -> 1.0-15.0
+    2. Comunas -> 1.0-15.0
     """
-    print("--- Iniciando clasificación de localización (3 pasos) ---")
+    print("--- Iniciando clasificación de localización (2 pasos) ---")
     
     # Asegurar mismo CRS
     puntos_gdf = puntos_gdf.to_crs("EPSG:4326")
     palermo_gdf = palermo_gdf.to_crs("EPSG:4326")
-    anillo_digital_gdf = anillo_digital_gdf.to_crs("EPSG:4326")
     comunas_gdf = comunas_gdf.to_crs("EPSG:4326")
 
     # Inicializar como None
@@ -102,17 +93,7 @@ def clasificar_localizacion(puntos_gdf, palermo_gdf, anillo_digital_gdf, comunas
         print(f"   ✅ {len(puntos_en_palermo)} puntos clasificados como Palermo Norte (14.5).")
         puntos_gdf.loc[puntos_en_palermo.index, 'Localizacion'] = 14.5
 
-    # PASO 2: Clasificar Anillo Digital C2 como 2.5 (solo puntos NO clasificados)
-    mask_palermo = puntos_gdf['Localizacion'] == 14.5
-    puntos_restantes = puntos_gdf[~mask_palermo]
-    
-    if not puntos_restantes.empty:
-        puntos_en_anillo = gpd.sjoin(puntos_restantes, anillo_digital_gdf, how="inner", predicate='within')
-        if not puntos_en_anillo.empty:
-            print(f"   ✅ {len(puntos_en_anillo)} puntos clasificados como Anillo Digital C2 (2.5).")
-            puntos_gdf.loc[puntos_en_anillo.index, 'Localizacion'] = 2.5
-
-    # PASO 3: Clasificar por comunas (solo puntos aún NO clasificados)
+    # PASO 2: Clasificar por comunas (solo puntos aún NO clasificados)
     mask_clasificados = puntos_gdf['Localizacion'].notna()
     puntos_para_comunas = puntos_gdf[~mask_clasificados]
 
@@ -135,7 +116,7 @@ def clasificar_localizacion(puntos_gdf, palermo_gdf, anillo_digital_gdf, comunas
                 puntos_gdf.loc[puntos_en_comunas.index, 'Localizacion'] = valores_numericos
                 print(f"   ✅ {len(puntos_en_comunas)} puntos clasificados por comuna.")
     
-    # Localizacion es float: 14.5=Palermo, 2.5=Anillo Digital, 1.0-15.0=Comunas, None=Fuera
+    # Localizacion es float: 14.5=Palermo, 1.0-15.0=Comunas, None=Fuera
     return puntos_gdf['Localizacion']
 
 def subir_a_neon(df):
@@ -242,17 +223,6 @@ def procesar_datos_geoespaciales_total(df_kobo):
                 raise FileNotFoundError("No se encontró KML dentro de Palermo_Norte.kmz")
         if palermo_gdf.crs is None: palermo_gdf.set_crs("EPSG:4326", inplace=True)
         
-        # Cargar Anillo Digital C2 KMZ
-        print("📂 Cargando archivo Anillo Digital C2...")
-        with zipfile.ZipFile(RUTA_KML_ANILLO_DIGITAL, 'r') as kmz:
-            kml_files = [f for f in kmz.namelist() if f.endswith('.kml')]
-            if kml_files:
-                with kmz.open(kml_files[0]) as kml_file:
-                    anillo_digital_gdf = gpd.read_file(kml_file)
-            else:
-                raise FileNotFoundError("No se encontró KML dentro de anillo_digital_c2.kmz")
-        if anillo_digital_gdf.crs is None: anillo_digital_gdf.set_crs("EPSG:4326", inplace=True)
-        
         # Cargar comunas SHP
         print("📂 Cargando shapefile de comunas...")
         comunas_gdf = gpd.read_file(RUTA_SHP_COMUNAS)
@@ -267,7 +237,7 @@ def procesar_datos_geoespaciales_total(df_kobo):
         'Recorrido C': Polygon([(-58.400944, -34.594168), (-58.395365, -34.587137), (-58.389185, -34.584593),(-58.398455, -34.580212), (-58.407295, -34.581837), (-58.404592, -34.593108),(-58.41017, -34.588232), (-58.400944, -34.594168)])
     }
 
-    df_kobo['Localizacion'] = clasificar_localizacion(puntos_gdf, palermo_gdf, anillo_digital_gdf, comunas_gdf)
+    df_kobo['Localizacion'] = clasificar_localizacion(puntos_gdf, palermo_gdf, comunas_gdf)
     df_kobo['Poligono'] = asignar_recorrido(puntos_gdf, poligonos_recorrido)
 
     return df_kobo

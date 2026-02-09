@@ -3,7 +3,7 @@ Script de Reclasificación Única - Google Sheets
 ================================================
 
 Este script descarga TODOS los datos del Google Sheet "puntos flash",
-aplica la nueva lógica de clasificación espacial en 3 pasos, y 
+aplica la nueva lógica de clasificación espacial en 2 pasos, y 
 REEMPLAZA completamente el contenido del sheet con los datos reclasificados.
 
 IMPORTANTE:
@@ -11,10 +11,9 @@ IMPORTANTE:
 - Hace BACKUP automático exportando a CSV antes de modificar
 - REEMPLAZA todos los datos del sheet
 
-Clasificación en 3 pasos:
+Clasificación en 2 pasos:
 1. Palermo Norte → 14.5
-2. Anillo Digital C2 → 2.5
-3. Comunas → 1.0-15.0
+2. Comunas → 1.0-15.0
 """
 
 import pandas as pd
@@ -29,6 +28,10 @@ import sys
 import re
 import zipfile
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Cargar variables de entorno desde .env
+load_dotenv()
 
 # Configuración Google Sheets
 NOMBRE_SPREADSHEET = "puntos flash"
@@ -42,13 +45,14 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
     # Fallback si no está en entorno (aunque debería estar)
     print("⚠️ ADVERTENCIA: DATABASE_URL no encontrada en variables de entorno")
+else:
+    print("✅ DATABASE_URL cargada correctamente")
 
 NEON_TABLE_NAME = 'kobo_flash_consolidado'
 
 # Buscar archivos geográficos
 print("🔍 Buscando archivos geográficos...")
 RUTA_KMZ_PALERMO = None
-RUTA_KML_ANILLO_DIGITAL = None
 RUTA_SHP_COMUNAS = None
 
 for root, dirs, files in os.walk(BASE_DIR):
@@ -57,23 +61,29 @@ for root, dirs, files in os.walk(BASE_DIR):
             RUTA_KMZ_PALERMO = os.path.join(root, file)
             print(f"   ✅ Palermo Norte: {RUTA_KMZ_PALERMO}")
         
-        if 'anillo_digital' in file.lower() and file.lower().endswith('.kmz'):
-            RUTA_KML_ANILLO_DIGITAL = os.path.join(root, file)
-            print(f"   ✅ Anillo Digital: {RUTA_KML_ANILLO_DIGITAL}")
-        
         if file.lower() == 'comunas.shp':
             RUTA_SHP_COMUNAS = os.path.join(root, file)
             print(f"   ✅ Comunas: {RUTA_SHP_COMUNAS}")
 
-if not all([RUTA_KMZ_PALERMO, RUTA_KML_ANILLO_DIGITAL, RUTA_SHP_COMUNAS]):
+if not all([RUTA_KMZ_PALERMO, RUTA_SHP_COMUNAS]):
     print("❌ ERROR: Faltan archivos geográficos")
     sys.exit(1)
 
+def asignar_turno(fecha):
+    """Asigna turno basándose en la hora del timestamp"""
+    if pd.isnull(fecha): return None
+    h = fecha.hour
+    if 3 <= h < 8: return "TM"
+    elif 8 <= h < 16: return "TO"
+    elif 16 <= h < 22: return "TT"
+    elif h >= 22 or h < 3: return "TN"
+    else: return None
+
 def clasificar_localizacion_3_pasos(df):
     """
-    Aplica clasificación en 3 pasos a un DataFrame con columnas latitude/longitude
+    Aplica clasificación en 2 pasos a un DataFrame con columnas latitude/longitude
     """
-    print("\n🗺️ Iniciando clasificación espacial en 3 pasos...")
+    print("\n🗺️ Iniciando clasificación espacial en 2 pasos...")
     
     # Cargar capas geográficas
     print("📂 Cargando capas...")
@@ -87,22 +97,6 @@ def clasificar_localizacion_3_pasos(df):
     if palermo_gdf.crs is None:
         palermo_gdf.set_crs("EPSG:4326", inplace=True)
     palermo_gdf = palermo_gdf.to_crs("EPSG:4326")
-    
-    # Anillo Digital
-    try:
-        anillo_digital_gdf = gpd.read_file(RUTA_KML_ANILLO_DIGITAL)
-    except:
-        if RUTA_KML_ANILLO_DIGITAL.lower().endswith('.kmz'):
-            with zipfile.ZipFile(RUTA_KML_ANILLO_DIGITAL, 'r') as kmz:
-                kml_files = [f for f in kmz.namelist() if f.endswith('.kml')]
-                if kml_files:
-                    with kmz.open(kml_files[0]) as kml_file:
-                        anillo_digital_gdf = gpd.read_file(kml_file)
-        else:
-            anillo_digital_gdf = gpd.read_file(RUTA_KML_ANILLO_DIGITAL)
-    if anillo_digital_gdf.crs is None:
-        anillo_digital_gdf.set_crs("EPSG:4326", inplace=True)
-    anillo_digital_gdf = anillo_digital_gdf.to_crs("EPSG:4326")
     
     # Comunas
     comunas_gdf = gpd.read_file(RUTA_SHP_COMUNAS).to_crs("EPSG:4326")
@@ -124,19 +118,8 @@ def clasificar_localizacion_3_pasos(df):
         puntos_gdf.loc[puntos_en_palermo.index, 'Localizacion_Nueva'] = 14.5
         print(f"      ✅ {len(puntos_en_palermo)} puntos → 14.5 (Palermo Norte)")
     
-    # PASO 2: Anillo Digital
-    print("   🔹 Paso 2: Clasificando Anillo Digital...")
-    mask_palermo = puntos_gdf['Localizacion_Nueva'] == 14.5
-    puntos_restantes = puntos_gdf[~mask_palermo]
-    
-    if not puntos_restantes.empty:      
-        puntos_en_anillo_digital = gpd.sjoin(puntos_restantes, anillo_digital_gdf, how="inner", predicate='within')
-        if not puntos_en_anillo_digital.empty:
-            puntos_gdf.loc[puntos_en_anillo_digital.index, 'Localizacion_Nueva'] = 2.5
-            print(f"      ✅ {len(puntos_en_anillo_digital)} puntos → 2.5 (Anillo Digital)")
-    
-    # PASO 3: Comunas
-    print("   🔹 Paso 3: Clasificando por Comunas...")
+    # PASO 2: Comunas
+    print("   🔹 Paso 2: Clasificando por Comunas...")
     mask_clasificados = puntos_gdf['Localizacion_Nueva'].notna()
     puntos_para_comunas = puntos_gdf[~mask_clasificados]
     
@@ -154,7 +137,15 @@ def clasificar_localizacion_3_pasos(df):
                 puntos_gdf.loc[puntos_en_comunas.index, 'Localizacion_Nueva'] = valores_numericos
                 print(f"      ✅ {len(puntos_en_comunas)} puntos → Comunas 1.0-15.0")
     
+    
     # Agregar nueva columna al DataFrame original
+    # IMPORTANTE: Copiar todas las columnas del GeoDataFrame que no existían en df original
+    # para preservar columnas como 'Turno' que fueron agregadas antes de llamar esta función
+    for col in puntos_gdf.columns:
+        if col not in df.columns and col != 'geometry':
+            df[col] = puntos_gdf[col]
+    
+    # Específicamente agregar Localizacion_Nueva
     df['Localizacion_Nueva'] = puntos_gdf['Localizacion_Nueva']
     
     return df
@@ -215,11 +206,10 @@ def main():
     print("\n⚠️ ADVERTENCIA:")
     print("Este script va a:")
     print("1. Descargar TODOS los datos del Google Sheet")
-    print("2. Reclasificar usando la nueva lógica de 3 pasos")
+    print("2. Reclasificar usando la nueva lógica de 2 pasos")
     print("3. REEMPLAZAR completamente el contenido del sheet")
     print("\n📋 Nueva clasificación:")
     print("   • Palermo Norte → 14.5")
-    print("   • Anillo Digital C2 → 2.5")
     print("   • Comunas → 1.0-15.0")
     
     respuesta = input("\n¿Continuar? (escribe 'SI' para confirmar): ")
@@ -291,9 +281,46 @@ def main():
         print("❌ ERROR: No se encontraron columnas latitude/longitude")
         sys.exit(1)
     
-    # Eliminar filas sin coordenadas válidas
+    # Asegurar que latitude y longitude sean numéricas
+    df['latitude'] = pd.to_numeric(df['latitude'], errors='coerce')
+    df['longitude'] = pd.to_numeric(df['longitude'], errors='coerce')
+    
+    # Eliminar filas sin coordenadas válidas (NaN, None, y valores inválidos)
     df_con_coords = df.dropna(subset=['latitude', 'longitude']).copy()
+    # Filtrar también valores 0,0 que suelen ser inválidos
+    df_con_coords = df_con_coords[(df_con_coords['latitude'] != 0) | (df_con_coords['longitude'] != 0)]
     print(f"📍 Registros con coordenadas válidas: {len(df_con_coords)}")
+    
+    # Agregar columna Turno
+    # IMPORTANTE: En Google Sheets, 'start' solo tiene fecha y 'hora_start' tiene la hora
+    # Necesitamos combinarlas para obtener el datetime completo y clasificar correctamente
+    if 'start' in df_con_coords.columns:
+        # Convertir 'start' a datetime (solo fecha)
+        df_con_coords['start'] = pd.to_datetime(df_con_coords['start'], format='mixed', errors='coerce')
+        
+        # Si existe 'hora_start', combinar fecha + hora
+        if 'hora_start' in df_con_coords.columns:
+            print("📅 Combinando columnas 'start' (fecha) + 'hora_start' (hora)...")
+            
+            # Convertir hora_start a string por si viene en otro formato
+            df_con_coords['hora_start'] = df_con_coords['hora_start'].astype(str)
+            
+            # Combinar fecha + hora en un solo datetime
+            df_con_coords['start_completo'] = pd.to_datetime(
+                df_con_coords['start'].dt.strftime('%Y-%m-%d') + ' ' + df_con_coords['hora_start'],
+                format='%Y-%m-%d %H:%M:%S',
+                errors='coerce'
+            )
+            
+            # Clasificar turnos usando el datetime completo
+            df_con_coords['Turno'] = df_con_coords['start_completo'].apply(asignar_turno)
+            print(f"✅ Columna 'Turno' agregada (usando fecha + hora combinadas)")
+        else:
+            # Si no hay hora_start, usar solo 'start' (caso cuando viene directo de Kobo)
+            df_con_coords['Turno'] = df_con_coords['start'].apply(asignar_turno)
+            print(f"✅ Columna 'Turno' agregada (usando solo 'start')")
+    else:
+        print("⚠️ ADVERTENCIA: No se encontró columna 'start', no se puede agregar 'Turno'")
     
     # Aplicar reclasificación
     df_reclasificado = clasificar_localizacion_3_pasos(df_con_coords)
@@ -301,7 +328,6 @@ def main():
     # Mostrar estadísticas
     print("\n📊 Resultados de reclasificación:")
     print(f"   • Palermo Norte (14.5): {(df_reclasificado['Localizacion_Nueva'] == 14.5).sum()}")
-    print(f"   • Anillo Digital C2 (2.5): {(df_reclasificado['Localizacion_Nueva'] == 2.5).sum()}")
     print(f"   • Comuna 1-15: {((df_reclasificado['Localizacion_Nueva'] >= 1) & (df_reclasificado['Localizacion_Nueva'] <= 15)).sum()}")
     print(f"   • Sin clasificar: {df_reclasificado['Localizacion_Nueva'].isna().sum()}")
     
@@ -311,6 +337,11 @@ def main():
         df_reclasificado = df_reclasificado.drop(columns=['Localizacion_Nueva'])
     else:
         df_reclasificado = df_reclasificado.rename(columns={'Localizacion_Nueva': 'Localizacion'})
+    
+    # Convertir columnas de fecha/timestamp a strings para Google Sheets
+    for col in df_reclasificado.columns:
+        if pd.api.types.is_datetime64_any_dtype(df_reclasificado[col]):
+            df_reclasificado[col] = df_reclasificado[col].dt.strftime('%Y-%m-%d %H:%M:%S')
     
     # Convertir a object y reemplazar NaN con None para Google Sheets
     df_final = df_reclasificado.astype(object)
