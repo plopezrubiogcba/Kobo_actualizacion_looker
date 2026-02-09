@@ -7,4 +7,3 @@ oauth2client
 openpyxl
 rtree
 python-dotenv
-sqlalchemy
