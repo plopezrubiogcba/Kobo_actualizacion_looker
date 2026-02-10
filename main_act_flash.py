@@ -60,7 +60,109 @@ if not RUTA_KMZ_PALERMO or not RUTA_SHP_COMUNAS:
     sys.exit(1)
 
 
-# --- 3. FUNCIONES DE LÓGICA DE NEGOCIO ---
+# --- 3. FUNCIONES DE EXTRACCIÓN COMPLETA DE KOBO ---
+
+def obtener_schema_kobo():
+    """Obtiene el schema completo del formulario Kobo"""
+    KOBO_BASE_URL = "https://kf.kobotoolbox.org"
+    headers = {"Authorization": f"Token {TOKEN_KOBO}"}
+    url = f"{KOBO_BASE_URL}/api/v2/assets/{UID_KOBO}/"
+    
+    resp = requests.get(url, headers=headers)
+    resp.raise_for_status()
+    return resp.json().get('content', {})
+
+def expandir_select_multiple(df, schema, col_name):
+    """
+    Expande un campo select_multiple en columnas booleanas separadas
+    
+    Args:
+        df: DataFrame con los datos
+        schema: Schema del formulario Kobo
+        col_name: Nombre completo del campo select_multiple (ej: 'caracteristicas_puntos/caracteristicas_observada')
+    
+    Returns:
+        DataFrame con columnas expandidas
+    """
+    survey = schema.get('survey', [])
+    choices = schema.get('choices', [])
+    
+    # Buscar el campo en el survey
+    field_info = None
+    for q in survey:
+        xpath = q.get('$xpath', q.get('name', ''))
+        if xpath == col_name or q.get('name') == col_name.split('/')[-1]:
+            if q.get('type') == 'select_multiple':
+                field_info = q
+                break
+    
+    if not field_info:
+        print(f"   ⚠️  Campo {col_name} no encontrado en schema como select_multiple")
+        return df
+    
+    # Obtener lista de opciones
+    list_name = field_info.get('select_from_list_name') or field_info.get('list_name')
+    if not list_name:
+        print(f"   ⚠️ Campo {col_name} no tiene lista de opciones")
+        return df
+    
+    # Filtrar opciones relevantes
+    relevant_choices = [c for c in choices if c.get('list_name') == list_name]
+    
+    if not relevant_choices:
+        print(f"   ⚠️  No se encontraron opciones para list_name={list_name}")
+        return df
+    
+    # Crear columnas booleanas
+    for choice in relevant_choices:
+        choice_name = choice.get('name')
+        col_bool_name = f"{col_name}/{choice_name}"
+        
+        # Verificar si el valor contiene esta opción
+        df[col_bool_name] = df[col_name].astype(str).str.contains(
+            r'\b' + re.escape(choice_name) + r'\b',
+            regex=True,
+            na=False
+        )
+    
+    print(f"   ✅ Select_multiple expandido: {col_name} → {len(relevant_choices)} columnas")
+    return df
+
+def extraer_kobo_completo():
+    """
+    Extracción completa de datos de Kobo incluyendo expansión de select_multiple
+    """
+    print("\n📋 EXTRACCIÓN COMPLETA DE KOBO")
+    print("  📂 Obteniendo schema del formulario...")
+    
+    # 1. Obtener schema
+    schema = obtener_schema_kobo()
+    survey = schema.get('survey', [])
+    
+    # 2. Descargar datos
+    print("  📥 Descargando submissions...")
+    headers = {"Authorization": f"Token {TOKEN_KOBO}"}
+    resp = requests.get(URL_KOBO, headers=headers)
+    resp.raise_for_status()
+    data = resp.json()
+    
+    # 3. Normalizar a DataFrame
+    df = pd.json_normalize(data['results'])
+    print(f"  ✅ Columnas base extraídas: {len(df.columns)}")
+    
+    # 4. Buscar campos select_multiple y expandirlos
+    print("  ☑️  Expandiendo select_multiple...")
+    for q in survey:
+        if q.get('type') == 'select_multiple':
+            field_name = q.get('$xpath', q.get('name'))
+            if field_name in df.columns:
+                df = expandir_select_multiple(df, schema, field_name)
+    
+    print(f"\n  🎉 Extracción completa: {len(df)} registros, {len(df.columns)} columnas")
+    return df
+
+
+# --- 4. FUNCIONES DE LÓGICA DE NEGOCIO ---
 
 def asignar_turno(fecha):
     if pd.isnull(fecha): return None
@@ -246,20 +348,18 @@ def procesar_datos_geoespaciales_total(df_kobo):
 # --- 4. MAIN EJECUCIÓN ---
 
 if __name__ == '__main__':
-    print(">>> INICIO DE PROCESO INTEGRADO (ESTRICTO + JSON COMPLIANT) <<<")
+    print(">>> INICIO DE PROCESO INTEGRADO (EXTRACCIÓN COMPLETA + GEOESPACIAL) <<<")
     
-    # 1. KOBO
-    print("1. Descargando Kobo Completo...")
-    headers = {"Authorization": f"Token {TOKEN_KOBO}"}
+    # 1. EXTRACCIÓN COMPLETA DE KOBO (con expansión de select_multiple)
     try:
-        resp = requests.get(URL_KOBO, headers=headers)
-        resp.raise_for_status()
-        df_raw = pd.json_normalize(resp.json()['results'])
+        df_raw = extraer_kobo_completo()
     except Exception as e:
-        print(f"Error Kobo: {e}")
+        print(f"❌ Error en extracción de Kobo: {e}")
         sys.exit(1)
 
-    if df_raw.empty: sys.exit(0)
+    if df_raw.empty:
+        print("⚠️ No hay datos nuevos de Kobo")
+        sys.exit(0)
 
     # 2. PROCESAR GEOESPACIALMENTE
     print("2. Procesando lógica geoespacial...")
@@ -333,6 +433,7 @@ if __name__ == '__main__':
     }
     df_nuevos_final.rename(columns=rename_map, inplace=True)
 
+
     columnas_deseadas = [
         'Turno', 'start', 'hora_start', 'end', 'today', 'username', 'deviceid',
         'Georreferenciación del punto', 'latitude', 'longitude',
@@ -341,7 +442,9 @@ if __name__ == '__main__':
         'Características observables del punto', 'estructura', 'colchon',
         'Características observables del punto/Basura, ropa, bolsos, etc',
         'Características observables del punto/No se observan cosas',
-        'Se observan niños/as en el punto', '_id', '_uuid', '_submission_time', 
+        'Se observan niños/as en el punto', 
+        'datos_per/sit_calle',  # Campo sit_calle del API
+        '_id', '_uuid', '_submission_time', 
         '_validation_status', '_notes', '_status', '_submitted_by', '__version__', 
         '_tags', '_index', 'Poligono', 'Localizacion'
     ]

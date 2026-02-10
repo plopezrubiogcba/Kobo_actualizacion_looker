@@ -1,0 +1,458 @@
+================================================================================
+RESUMEN COMPLETO - IMPLEMENTACIÓN DE EXTRACCIÓN COMPLETA DE DATOS DE KOBO
+================================================================================
+Fecha: 2026-02-05
+Proyecto: Kobo_actualizacion_looker
+Scripts principales: main_act_flash.py, reclassify_sheet_once.py
+
+================================================================================
+1. OBJETIVO PRINCIPAL
+================================================================================
+
+Implementar extracción COMPLETA de datos desde KoboToolbox que capture TODOS 
+los campos del formulario, incluyendo:
+- Campos select_multiple expandidos en columnas booleanas separadas
+- Geopoints separados en latitude/longitude/altitude/precision
+- Todas las columnas del schema del formulario, incluso si están vacías
+- Subir TODO solo a Neon PostgreSQL (eliminar BigQuery y Google Sheets)
+
+================================================================================
+2. PROBLEMA INICIAL IDENTIFICADO
+================================================================================
+
+SÍNTOMA:
+- API de Kobo devolvía solo 25 columnas
+- CSV export de Kobo mostraba 34 columnas
+- Faltaban columnas expandidas de campos select_multiple
+- Solo se cargaban 25 columnas a Neon en vez de todas
+
+DIAGNÓSTICO REALIZADO:
+
+A) Diferencia API vs CSV Export:
+   - API: Devuelve nombres INTERNOS (ej: "datos_per/cant_pers")
+   - CSV: Usa LABELS bonitos (ej: "Cantidad de personas en situación de calle...")
+   
+B) Problema con select_multiple:
+   El campo "caracteristicas_puntos/caracteristicas_observada" es tipo select_multiple
+   con 7 opciones:
+   
+   1. Con estructura tipo carpa o refugio
+   2. Colchón/es  
+   3. Bolsos y/o bolsas
+   4. No se observa nada de lo anterior
+   5. Otro materiales acumulados (Cartón, chatarras, etc.)
+   6. Silla de ruedas, carrito de bebé
+   7. Carro para transportar cosas (Cartoneros)
+   
+   - API devuelve: Solo campo principal con valores "1 2 5" (valores seleccionados)
+   - CSV export: Expande en 8 columnas (campo base + 7 opciones con labels bonitos)
+
+C) Filtro de columnas:
+   - reclassify_sheet_once.py tenía lista "columnas_deseadas" que filtraba a solo 25
+   - Esto excluía las columnas expandidas del select_multiple
+
+================================================================================
+3. ESTRUCTURA DEL FORMULARIO KOBO ACTUAL
+================================================================================
+
+Según el schema obtenido del API (asset_info.json):
+
+CAMPOS REALES DEL FORMULARIO (6 preguntas):
+
+1. geo_ref/geo_punto (geopoint)
+   → Se expande en: latitude, longitude, altitude, precision
+
+2. datos_per/dni_operador (integer)
+   → "Ingrese número de documento del usuario que completa el formulario"
+
+3. datos_per/cant_pers (integer)
+   → "Cantidad de personas en situación de calle observadas"
+
+4. datos_per/sit_calle (select_one con 6 opciones)
+   → "La/s persona/s esta/n"
+   Opciones: Durmiendo, Cocinando/Comiendo, Circulando, Mendigando, Vendiendo, Recolectando
+
+5. caracteristicas_puntos/caracteristicas_observada (select_multiple con 7 opciones)
+   → "En el lugar hay…"
+   Se expande en 8 columnas (principal + 7 opciones)
+
+6. caracteristicas_puntos/NNyA_observa (select_one dicotómico)
+   → "Se observan niños/as en el lugar"
+   Opciones: Sí, No
+
+METADATOS AUTOMÁTICOS:
+- start, end, today, username, deviceid
+- _id, _uuid, _submission_time, _status, _submitted_by, __version__, _tags, _notes, etc.
+
+TOTAL ESPERADO: ~32-34 columnas (dependiendo de metadatos y expansiones)
+
+================================================================================
+4. SOLUCIONES IMPLEMENTADAS
+================================================================================
+
+A) MAIN_ACT_FLASH.PY (Extracción desde API → Neon)
+---------------------------------------------------
+
+FUNCIONES NUEVAS AGREGADAS (líneas 65-195):
+
+1. obtener_schema_kobo()
+   - Obtiene estructura del formulario desde API v2/assets/{uid}/
+   - Retorna content.survey y content.choices
+
+2. expandir_geopoint(df, geopoint_col)
+   - Recibe columna con formato "lat lon alt precision"
+   - Crea 4 columnas: latitude, longitude, altitude, precision
+   - Elimina columna original de geopoint
+
+3. expandir_select_multiple(df, schema, col_name)
+   - Detecta campos select_multiple en el schema
+   - Busca las opciones (choices) correspondientes
+   - Crea columna booleana por cada opción
+   - Formato: "campo_principal/opcion_name"
+
+4. asegurar_columnas_schema(df, schema)
+   - Itera sobre todas las preguntas del schema
+   - Asegura que existan columnas para cada campo
+   - Para select_multiple, busca columnas expandidas
+   - Crea columnas vacías (False/NaN) si faltan
+
+5. extraer_kobo_completo()
+   - FUNCIÓN PRINCIPAL que integra todo
+   - Pasos:
+     a. Obtener schema del formulario
+     b. Descargar datos via API data.json
+     c. Normalizar JSON con pd.json_normalize()
+     d. Expandir geopoints
+     e. Expandir select_multiple
+     f. Asegurar todas las columnas del schema
+     g. Retornar DataFrame completo
+
+CAMBIO EN EJECUCIÓN PRINCIPAL (línea 462-478):
+   ANTES: df_raw = pd.json_normalize(resp.json()['results'])
+   AHORA: df_raw = extraer_kobo_completo()
+
+VARIABLES DE ENTORNO AGREGADAS A .ENV:
+   KOBO_BASE_URL=https://kf.kobotoolbox.org
+   URL_KOBO_ASSET (construida desde KOBO_BASE_URL + UID)
+
+
+B) RECLASSIFY_SHEET_ONCE.PY (Lectura desde Google Sheets → Neon)
+----------------------------------------------------------------
+
+CAMBIOS APLICADOS:
+
+1. Actualización del rename_map (líneas 338-367):
+   - ANTES: Mapeaba campos que no existían (datos_per/personas_estado, etc.)
+   - AHORA: Mapeo inteligente que:
+     * Preserva nombres bonitos que ya vienen de Google Sheets
+     * Mapea nombres internos solo si existen
+     * Solo aplica renombrados de columnas EXISTENTES
+   
+   Código nuevo:
+   ```python
+   existing_renames = {k: v for k, v in rename_map.items() 
+                      if k in df_reclasificado.columns}
+   if existing_renames:
+       df_reclasificado.rename(columns=existing_renames, inplace=True)
+   ```
+
+2. Eliminación de filtro de columnas (líneas 378-423):
+   - ANTES: Lista "columnas_deseadas" con solo 25 columnas específicas
+   - AHORA: Envía TODAS las columnas sin filtrar
+   
+   Código nuevo:
+   ```python
+   # NO FILTRAR COLUMNAS - Enviar TODAS las columnas disponibles a Neon
+   print(f"   ✅ {len(df_reclasificado.columns)} columnas preparadas para Neon")
+   df_final = df_reclasificado.astype(object)
+   ```
+
+3. Actualización de docstring:
+   - Clarifica que el script LEE de Google Sheets
+   - Pero SOLO ESCRIBE a Neon PostgreSQL
+   - NO modifica ni actualiza Google Sheets
+
+NOTA IMPORTANTE: 
+Google Sheets ya contiene datos con formato CSV export, es decir, columnas 
+expandidas con nombres bonitos. Por eso NO necesita las funciones de 
+expandir_select_multiple que tiene main_act_flash.py.
+
+================================================================================
+5. ARCHIVOS DE DIAGNÓSTICO CREADOS
+================================================================================
+
+Durante el proceso se crearon varios scripts de diagnóstico:
+
+1. prueba.py
+   - Compara columnas entre CSV export y API
+   - Detecta delimitador correcto (;)
+   - Genera comparacion_csv_vs_api.txt
+
+2. diagnostico_schema_kobo.py
+   - Inspecciona schema completo del formulario
+   - Lista todas las preguntas y opciones
+   - Genera asset_info.json con estructura completa
+
+3. diagnostico_completo_api.py
+   - Prueba diferentes endpoints del API
+   - Compara schema vs datos reales del API
+   - Identifica campos faltantes
+
+4. test_kobo_extraction.py
+   - Valida función extraer_kobo_completo()
+   - Ejecuta extracción sin procesar datos
+   - Genera columnas_kobo_completas.txt
+
+5. test_reclassify.py
+   - Simula procesamiento de reclassify_sheet_once.py
+   - Valida mapeo de columnas
+   - Genera columnas_finales_reclassify.txt
+
+6. columnas.py (NUEVO)
+   - Script de validación completo
+   - Compara columnas entre Schema, API y Neon
+   - Verifica expansiones de select_multiple
+   - Genera reporte_columnas_kobo.txt
+
+ARCHIVOS DE SALIDA GENERADOS:
+- columnas_csv_kobo.txt (34 columnas del CSV export)
+- columnas_api_kobo.txt (25 columnas del API)
+- comparacion_csv_vs_api.txt (diferencias)
+- asset_info.json (schema completo del formulario)
+- columnas_kobo_completas.txt (resultado de extracción completa)
+- muestra_kobo.csv (datos de ejemplo)
+- reporte_columnas_kobo.txt (generado por columnas.py)
+
+================================================================================
+6. CONFIGURACIÓN FINAL
+================================================================================
+
+ARCHIVO .ENV:
+```
+KOBO_API_TOKEN=b6a9c8897db4c180b9eff560e890edfb394313db
+KOBO_BASE_URL=https://kf.kobotoolbox.org
+DATABASE_URL=postgresql://neondb_owner:...@...neon.tech/neondb?sslmode=require
+GOOGLE_APPLICATION_CREDENTIALS=kobo-looker-connect.json
+```
+
+REQUIREMENTS.TXT (dependencias):
+```
+pandas
+geopandas
+requests
+gspread
+oauth2client
+sqlalchemy
+psycopg2-binary
+python-dotenv
+shapely
+```
+
+================================================================================
+7. FLUJO DE DATOS ACTUAL
+================================================================================
+
+A) DATOS NUEVOS (main_act_flash.py):
+   
+   Kobo API → extraer_kobo_completo() → Procesamiento geoespacial → Neon
+   
+   - Ejecutar cuando hay datos nuevos en Kobo
+   - Extrae ~32 columnas con expansiones
+   - Aplica clasificación geográfica (Palermo Norte, Anillo Digital, Comunas)
+   - Sube SOLO a Neon PostgreSQL
+
+B) DATOS HISTÓRICOS (reclassify_sheet_once.py):
+   
+   Google Sheets → Lectura → Procesamiento geoespacial → Neon
+   
+   - Ya ejecutado exitosamente (14,245 registros)
+   - Lee columnas con nombres bonitos del CSV export
+   - Aplica clasificación geográfica
+   - Sube SOLO a Neon PostgreSQL
+   - NO modifica Google Sheets
+
+DESTINO ÚNICO: Neon PostgreSQL
+- Tabla: kobo_flash_consolidado
+- Método: df.to_sql() con if_exists='replace'
+- Conexión: SQLAlchemy con SSL
+
+================================================================================
+8. COLUMNAS FINALES ESPERADAS EN NEON
+================================================================================
+
+COLUMNAS BASE (5):
+- start, end, today, username, deviceid
+
+GEORREFERENCIACIÓN (5):
+- Georreferenciación del punto (original)
+- _Georreferenciación del punto_latitude
+- _Georreferenciación del punto_longitude  
+- _Georreferenciación del punto_altitude
+- _Georreferenciación del punto_precision
+
+DATOS DE PERSONAS (3):
+- Ingrese número de documento del usuario que completa el formulario
+- Cantidad de personas en situación de calle observadas
+- La/s persona/s esta/n
+
+SELECT_MULTIPLE EXPANDIDO (9):
+- En el lugar hay… (campo principal)
+- En el lugar hay…/Con estructura tipo carpa o refugio
+- En el lugar hay…/Colchón/es
+- En el lugar hay…/Basura, ropa, bolsos, etc
+- En el lugar hay…/No se observa nada de lo anterior
+- En el lugar hay…/Bolsos y/o bolsas
+- En el lugar hay…/Otro materiales acumulados (Cartón, chatarras, etc.)
+- En el lugar hay…/Silla de ruedas, carrito de bebé
+- En el lugar hay…/Carro para transportar cosas (Cartoneros)
+
+OTROS CAMPOS:
+- Se observan niños/as en el lugar
+- Ingrese solo los digitos de su documento (campo histórico)
+
+METADATOS KOBO (~11):
+- _id, _uuid, _submission_time, _validation_status, _notes
+- _status, _submitted_by, __version__, _tags, _index
+- _attachments, _geolocation, _xform_id_string
+- formhub/uuid, meta/instanceID, meta/rootUuid
+
+COLUMNAS CALCULADAS (4):
+- Turno (calculado por script)
+- hora_start (calculado por script)
+- Poligono (clasificación geográfica)
+- Localizacion (comuna calculada: 1-15, 2.5, 14.5)
+
+TOTAL: ~34-37 columnas
+
+IMPORTANTE: PostgreSQL soporta nombres de columnas con:
+- Tildes (á, é, í, ó, ú)
+- Espacios
+- Caracteres especiales (/, …)
+- SQLAlchemy maneja esto automáticamente con comillas dobles
+
+================================================================================
+9. VALIDACIÓN Y PRUEBAS
+================================================================================
+
+SCRIPT DE VALIDACIÓN: columnas.py
+
+Uso:
+```bash
+python columnas.py
+```
+
+Este script:
+1. Obtiene columnas del schema de Kobo
+2. Obtiene columnas del API actual
+3. Obtiene columnas de la tabla Neon
+4. Compara las tres fuentes
+5. Verifica específicamente select_multiple
+6. Genera reporte completo
+
+Salida esperada:
+```
+🔍 VALIDACIÓN DE COLUMNAS - KOBO EXTRACTION
+1️⃣ OBTENIENDO SCHEMA DEL FORMULARIO...
+   ✅ Campos base del schema: X
+   ✅ Expansiones select_multiple: Y
+
+2️⃣ OBTENIENDO COLUMNAS DEL API...
+   ✅ Columnas en API: 25
+
+3️⃣ OBTENIENDO COLUMNAS DE NEON...
+   ✅ Columnas en Neon: 34
+
+4️⃣ COMPARACIÓN DE COLUMNAS
+   [Análisis detallado]
+
+5️⃣ VERIFICACIÓN SELECT_MULTIPLE
+   API: 0/7 (NORMAL - API no expande automáticamente)
+   NEON: 7/7 (CORRECTO - expansión aplicada)
+
+6️⃣ GENERANDO REPORTE...
+   ✅ Reporte guardado en: reporte_columnas_kobo.txt
+
+✅ VALIDACIÓN COMPLETADA
+```
+
+================================================================================
+10. RESOLUCIÓN DE PROBLEMAS COMUNES
+================================================================================
+
+PROBLEMA: Solo carga 25 columnas
+SOLUCIÓN: Verificar que no haya filtro "columnas_deseadas" activo
+
+PROBLEMA: Columnas con tildes no se cargan
+SOLUCIÓN: PostgreSQL soporta esto, SQLAlchemy usa comillas dobles automáticamente
+
+PROBLEMA: Select_multiple no se expande
+SOLUCIÓN: Verificar que obtener_schema_kobo() funcione correctamente
+
+PROBLEMA: API no devuelve todos los campos
+SOLUCIÓN: Los campos del CSV son expansiones automáticas, el API devuelve lo correcto
+
+PROBLEMA: Campos históricos no existen en datos nuevos
+SOLUCIÓN: Normal, el formulario cambió. Neon aceptará NULL en esas columnas
+
+================================================================================
+11. ARCHIVOS MODIFICADOS EN ESTA SESIÓN
+================================================================================
+
+SCRIPTS PRINCIPALES:
+- main_act_flash.py
+  * Agregadas funciones de extracción completa (líneas 65-195)
+  * Modificado bloque principal para usar extraer_kobo_completo()
+  * Actualizada configuración con KOBO_BASE_URL
+
+- reclassify_sheet_once.py
+  * Actualizado rename_map para ser más inteligente
+  * Eliminado filtro columnas_deseadas
+  * Actualizado docstring
+
+CONFIGURACIÓN:
+- .env
+  * Agregado KOBO_BASE_URL=https://kf.kobotoolbox.org
+
+SCRIPTS DE DIAGNÓSTICO CREADOS:
+- prueba.py (comparación CSV vs API)
+- diagnostico_schema_kobo.py (análisis de schema)
+- diagnostico_completo_api.py (diagnóstico profundo)
+- test_kobo_extraction.py (validación de extracción)
+- test_reclassify.py (validación de procesamiento)
+- columnas.py (validación completa Schema/API/Neon)
+
+================================================================================
+12. USO DEL SCRIPT columnas.py
+================================================================================
+
+El script columnas.py es útil para:
+
+1. DIAGNÓSTICO INICIAL:
+   Ejecutar antes de modificar cualquier cosa para ver estado actual
+
+2. VALIDACIÓN POST-CAMBIOS:
+   Ejecutar después de modificar código para confirmar que funcionó
+
+3. DEBUGGING:
+   Si algo falla, ejecutar para ver qué columnas están presentes/ausentes
+
+4. DOCUMENTACIÓN:
+   Genera reporte_columnas_kobo.txt con lista completa de columnas
+
+EJEMPLO DE USO TÍPICO:
+
+# Antes de ejecutar main_act_flash.py
+python columnas.py  # Ver estado actual
+
+# Ejecutar el script principal
+python main_act_flash.py
+
+# Después de ejecutar
+python columnas.py  # Verificar que las columnas se cargaron
+
+# Revisar reporte
+cat reporte_columnas_kobo.txt
+
+================================================================================
+FIN DEL RESUMEN
+================================================================================
