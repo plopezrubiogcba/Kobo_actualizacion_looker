@@ -221,12 +221,48 @@ def clasificar_localizacion(puntos_gdf, palermo_gdf, comunas_gdf):
     # Localizacion es float: 14.5=Palermo, 1.0-15.0=Comunas, None=Fuera
     return puntos_gdf['Localizacion']
 
+def obtener_ids_existentes_neon():
+    """
+    Obtiene los _uuid existentes desde Neon PostgreSQL.
+    Retorna un set de IDs para comparación rápida.
+    """
+    print("--- Consultando IDs existentes en Neon PostgreSQL ---")
+    
+    if not DATABASE_URL:
+        print("   ⚠️  DATABASE_URL no configurada, retornando set vacío")
+        return set()
+    
+    try:
+        engine = create_engine(DATABASE_URL)
+        
+        # Consulta solo la columna _uuid para eficiencia
+        query = f'SELECT "_uuid" FROM {NEON_TABLE_NAME}'
+        
+        with engine.connect() as connection:
+            result = pd.read_sql(query, connection)
+            
+        engine.dispose()
+        
+        if result.empty:
+            print("   ℹ️  Tabla vacía en Neon PostgreSQL (primera ejecución)")
+            return set()
+        
+        ids_existentes = set(result['_uuid'].astype(str))
+        print(f"   ✅ {len(ids_existentes)} registros existentes encontrados en Neon")
+        return ids_existentes
+        
+    except Exception as e:
+        print(f"   ⚠️  Error al consultar Neon PostgreSQL: {e}")
+        print("   ℹ️  Continuando con set vacío (se tratarán todos como nuevos)")
+        return set()
+
 def subir_a_neon(df):
     """
     Sube el DataFrame a Neon PostgreSQL usando SQLAlchemy.
     Trabaja sobre una copia para no afectar los datos de Sheets.
     IMPORTANTE: Mantiene nombres de columnas EXACTOS (con tildes, espacios, etc.)
     ya que PostgreSQL los soporta con comillas dobles.
+    MODO: APPEND (no sobrescribe datos existentes)
     """
     print("--- Preparando datos para Neon PostgreSQL ---")
     
@@ -256,19 +292,19 @@ def subir_a_neon(df):
     except Exception as e:
         raise ConnectionError(f"Error al conectar con Neon PostgreSQL: {e}")
     
-    # 6. Carga a Neon PostgreSQL
+    # 6. Carga a Neon PostgreSQL en modo APPEND
     print(f"   📤 Subiendo datos a tabla: {NEON_TABLE_NAME}")
     print(f"   📋 Columnas a cargar: {len(df_neon.columns)}")
     
     df_neon.to_sql(
         name=NEON_TABLE_NAME,
         con=engine,
-        if_exists='replace',
+        if_exists='append',  # CAMBIO CRÍTICO: append en lugar de replace
         index=False,
         method='multi'
     )
     
-    print(f"   ✅ {len(df_neon)} registros cargados exitosamente a Neon PostgreSQL")
+    print(f"   ✅ {len(df_neon)} registros agregados exitosamente a Neon PostgreSQL")
     
     # 7. Cerrar conexión
     engine.dispose()
@@ -367,8 +403,12 @@ if __name__ == '__main__':
     
     if df_procesado is None or df_procesado.empty: sys.exit(1)
 
-    # 3. GOOGLE SHEETS & DUPLICADOS
-    print("3. Verificando duplicados...")
+    # 3. VERIFICACIÓN DE DUPLICADOS DESDE NEON (FUENTE DE VERDAD)
+    print("3. Verificando duplicados desde Neon PostgreSQL...")
+    ids_existentes = obtener_ids_existentes_neon()
+    
+    # 3.5 PREPARAR GOOGLE SHEETS (solo para carga posterior)
+    print("3.5. Preparando conexión a Google Sheets...")
     scope = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets',
              "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
 
@@ -397,12 +437,7 @@ if __name__ == '__main__':
         creds = ServiceAccountCredentials.from_json_keyfile_name(ruta_creds, scope)
 
     client = gspread.authorize(creds)
-    try:
-        sheet = client.open(NOMBRE_SPREADSHEET).worksheet(NOMBRE_HOJA)
-        registros = sheet.get_all_records()
-        ids_existentes = set(str(r['_uuid']) for r in registros) if registros and '_uuid' in registros[0] else set()
-    except:
-        ids_existentes = set()
+    sheet = client.open(NOMBRE_SPREADSHEET).worksheet(NOMBRE_HOJA)
     
     # 4. FILTRAR NUEVOS
     if '_uuid' in df_procesado.columns:
@@ -488,27 +523,34 @@ if __name__ == '__main__':
     # 4. Reemplazar NaN con None
     df_final = df_final.where(pd.notnull(df_final), None)
 
-    print("5. Subiendo a Google Sheets...")
-    if len(ids_existentes) == 0:
-        sheet.clear()
-        sheet.update(values=[df_final.columns.values.tolist()] + df_final.values.tolist(), value_input_option='USER_ENTERED')
-    else:
-        headers_sheet = sheet.row_values(1)
-        if not headers_sheet: headers_sheet = columnas_deseadas
-        
-        df_append = df_final.reindex(columns=headers_sheet)
-        df_append = df_append.astype(object)
-        df_append = df_append.where(pd.notnull(df_append), None)
-        
-        sheet.append_rows(values=df_append.values.tolist(), value_input_option='USER_ENTERED')
-
-    # 6. SUBIR A NEON POSTGRESQL
-    print("6. Subiendo a Neon PostgreSQL...")
+    # 5. SUBIR A NEON POSTGRESQL (FUENTE DE VERDAD - PRIORIDAD)
+    print("5. Subiendo a Neon PostgreSQL (fuente de verdad)...")
     try:
         subir_a_neon(df_final)
         print("   ✅ Carga a Neon PostgreSQL exitosa")
     except Exception as e:
-        print(f"   ⚠️  Error en Neon PostgreSQL (no crítico): {e}")
-        print(f"   ℹ️  La carga a Google Sheets se completó correctamente")
+        print(f"   ❌ Error CRÍTICO en Neon PostgreSQL: {e}")
+        print(f"   ⚠️  No se subirá a Google Sheets hasta resolver el error en Neon")
+        sys.exit(1)
+    
+    # 6. SUBIR A GOOGLE SHEETS (secundario, para visualización)
+    print("6. Subiendo a Google Sheets (sincronización)...")
+    try:
+        if len(ids_existentes) == 0:
+            sheet.clear()
+            sheet.update(values=[df_final.columns.values.tolist()] + df_final.values.tolist(), value_input_option='USER_ENTERED')
+        else:
+            headers_sheet = sheet.row_values(1)
+            if not headers_sheet: headers_sheet = columnas_deseadas
+            
+            df_append = df_final.reindex(columns=headers_sheet)
+            df_append = df_append.astype(object)
+            df_append = df_append.where(pd.notnull(df_append), None)
+            
+            sheet.append_rows(values=df_append.values.tolist(), value_input_option='USER_ENTERED')
+        print("   ✅ Sincronización con Google Sheets exitosa")
+    except Exception as e:
+        print(f"   ⚠️  Error en Google Sheets (no crítico): {e}")
+        print(f"   ℹ️  Los datos ya están en Neon PostgreSQL (fuente de verdad)")
 
     print(">>> ÉXITO: Carga completada. <<<")
