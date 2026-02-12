@@ -34,6 +34,8 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
     print("⚠️ ADVERTENCIA: DATABASE_URL no encontrada en variables de entorno")
 else:
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     print("✅ DATABASE_URL cargada correctamente")
 
 NEON_TABLE_NAME = 'kobo_flash_consolidado'
