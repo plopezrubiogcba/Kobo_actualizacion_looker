@@ -1,3 +1,7 @@
+import sys
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
+
 import requests
 import pandas as pd
 import geopandas as gpd
@@ -11,14 +15,10 @@ import json
 import sys
 import re
 import zipfile
-
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
 # --- 1. CONFIGURACIÓN GLOBAL ---
-# Modificacion desde vscode
-
-# Cargar variables de entorno desde .env
 load_dotenv()
 
 TOKEN_KOBO = os.environ.get("KOBO_TOKEN", "b6a9c8897db4c180b9eff560e890edfb394313db")
@@ -31,65 +31,33 @@ NOMBRE_HOJA = "Sheet4"
 
 # NEON POSTGRESQL
 DATABASE_URL = os.environ.get("DATABASE_URL")
-if not DATABASE_URL:
-    print("⚠️ ADVERTENCIA: DATABASE_URL no encontrada en variables de entorno")
-else:
-    if DATABASE_URL.startswith("postgres://"):
-        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-    print("✅ DATABASE_URL cargada correctamente")
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 NEON_TABLE_NAME = 'kobo_flash_consolidado'
 
-# --- 2. BÚSQUEDA AUTOMÁTICA DE ARCHIVOS LOCALES ---
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-RUTA_KMZ_PALERMO = None
-RUTA_SHP_COMUNAS = None
+# Mapeo flash declarado (código Kobo) → Localizacion
+FLASH_TO_LOCALIZACION = {
+    '1': 2,    # Flash Recoleta  → Comuna 2
+    '2': 14.5, # Flash Palermo Norte → polígono priorizado (dentro de comuna 14)
+    '3': 13,   # Flash Belgrano  → Comuna 13
+    # '4' = Otro → solo GPS
+}
+CRS_METRICO = "EPSG:22185"  # Gauss-Kruger Faja 5, métrico para Buenos Aires
 
-print(f"--- Buscando archivos en: {BASE_DIR} ---")
-
-for root, dirs, files in os.walk(BASE_DIR):
-    for file in files:
-        if 'palermo' in file.lower() and 'norte' in file.lower() and file.lower().endswith('.kmz'):
-            RUTA_KMZ_PALERMO = os.path.join(root, file)
-            print(f"   ✅ KMZ Palermo Norte encontrado: {RUTA_KMZ_PALERMO}")
-        
-        if file.lower() == 'comunas.shp':
-            RUTA_SHP_COMUNAS = os.path.join(root, file)
-            print(f"   ✅ SHP encontrado: {RUTA_SHP_COMUNAS}")
-
-if not RUTA_KMZ_PALERMO or not RUTA_SHP_COMUNAS:
-    print("\n❌ ERROR CRÍTICO: Faltan archivos en el GitHub.")
-    sys.exit(1)
-
-
-# --- 3. FUNCIONES DE EXTRACCIÓN COMPLETA DE KOBO ---
+# --- 2. FUNCIONES DE APOYO Y EXTRACCIÓN ---
 
 def obtener_schema_kobo():
-    """Obtiene el schema completo del formulario Kobo"""
-    KOBO_BASE_URL = "https://kf.kobotoolbox.org"
     headers = {"Authorization": f"Token {TOKEN_KOBO}"}
-    url = f"{KOBO_BASE_URL}/api/v2/assets/{UID_KOBO}/"
-    
+    url = f"https://kf.kobotoolbox.org/api/v2/assets/{UID_KOBO}/"
     resp = requests.get(url, headers=headers)
     resp.raise_for_status()
     return resp.json().get('content', {})
 
 def expandir_select_multiple(df, schema, col_name):
-    """
-    Expande un campo select_multiple en columnas booleanas separadas
-    
-    Args:
-        df: DataFrame con los datos
-        schema: Schema del formulario Kobo
-        col_name: Nombre completo del campo select_multiple (ej: 'caracteristicas_puntos/caracteristicas_observada')
-    
-    Returns:
-        DataFrame con columnas expandidas
-    """
     survey = schema.get('survey', [])
     choices = schema.get('choices', [])
     
-    # Buscar el campo en el survey
     field_info = None
     for q in survey:
         xpath = q.get('$xpath', q.get('name', ''))
@@ -99,72 +67,52 @@ def expandir_select_multiple(df, schema, col_name):
                 break
     
     if not field_info:
-        print(f"   ⚠️  Campo {col_name} no encontrado en schema como select_multiple")
         return df
     
-    # Obtener lista de opciones
     list_name = field_info.get('select_from_list_name') or field_info.get('list_name')
     if not list_name:
-        print(f"   ⚠️ Campo {col_name} no tiene lista de opciones")
         return df
     
-    # Filtrar opciones relevantes
     relevant_choices = [c for c in choices if c.get('list_name') == list_name]
-    
-    if not relevant_choices:
-        print(f"   ⚠️  No se encontraron opciones para list_name={list_name}")
-        return df
-    
-    # Crear columnas booleanas
     for choice in relevant_choices:
         choice_name = choice.get('name')
         col_bool_name = f"{col_name}/{choice_name}"
-        
-        # Verificar si el valor contiene esta opción
         df[col_bool_name] = df[col_name].astype(str).str.contains(
             r'\b' + re.escape(choice_name) + r'\b',
             regex=True,
             na=False
         )
-    
-    print(f"   ✅ Select_multiple expandido: {col_name} → {len(relevant_choices)} columnas")
     return df
 
-def extraer_kobo_completo():
-    """
-    Extracción completa de datos de Kobo incluyendo expansión de select_multiple
-    """
-    print("\n📋 EXTRACCIÓN COMPLETA DE KOBO")
-    print("  📂 Obteniendo schema del formulario...")
-    
-    # 1. Obtener schema
+def extraer_kobo_completo(since_timestamp=None):
+    print("\n📋 EXTRACCIÓN DE KOBO")
     schema = obtener_schema_kobo()
-    survey = schema.get('survey', [])
-    
-    # 2. Descargar datos
-    print("  📥 Descargando submissions...")
     headers = {"Authorization": f"Token {TOKEN_KOBO}"}
-    resp = requests.get(URL_KOBO, headers=headers)
+    
+    params = {"limit": 30000}
+    if since_timestamp:
+        # Kobo API v2 usa el parámetro 'query' con sintaxis MongoDB para filtrar
+        # {"_submission_time": {"$gt": "2026-02-18T10:00:00"}}
+        print(f"⏳ Buscando registros posteriores a: {since_timestamp}")
+        params["query"] = json.dumps({"_submission_time": {"$gt": since_timestamp}})
+
+    resp = requests.get(URL_KOBO, headers=headers, params=params)
     resp.raise_for_status()
     data = resp.json()
     
-    # 3. Normalizar a DataFrame
+    if not data.get('results'):
+        return pd.DataFrame()
+        
     df = pd.json_normalize(data['results'])
-    print(f"  ✅ Columnas base extraídas: {len(df.columns)}")
     
-    # 4. Buscar campos select_multiple y expandirlos
-    print("  ☑️  Expandiendo select_multiple...")
-    for q in survey:
+    for q in schema.get('survey', []):
         if q.get('type') == 'select_multiple':
             field_name = q.get('$xpath', q.get('name'))
             if field_name in df.columns:
                 df = expandir_select_multiple(df, schema, field_name)
-    
-    print(f"\n  🎉 Extracción completa: {len(df)} registros, {len(df.columns)} columnas")
     return df
 
-
-# --- 4. FUNCIONES DE LÓGICA DE NEGOCIO ---
+# --- 3. LÓGICA DE NEGOCIO Y GEO ---
 
 def asignar_turno(fecha):
     if pd.isnull(fecha): return None
@@ -172,387 +120,271 @@ def asignar_turno(fecha):
     if 3 <= h < 8: return "TM"
     elif 8 <= h < 16: return "TO"
     elif 16 <= h < 22: return "TT"
-    elif h >= 22 or h < 3: return "TN"
-    else: return None
+    else: return "TN"
 
-def clasificar_localizacion(puntos_gdf, palermo_gdf, comunas_gdf):
-    """
-    Clasifica los puntos en 2 pasos secuenciales:
-    1. Palermo Norte -> 14.5
-    2. Comunas -> 1.0-15.0
-    """
-    print("--- Iniciando clasificación de localización (2 pasos) ---")
+def procesar_coords_y_fechas(df):
+    if 'geo_ref/geo_punto' in df.columns:
+        split_coords = df['geo_ref/geo_punto'].astype(str).str.split(' ', expand=True)
+        if split_coords.shape[1] >= 1: df['latitude'] = pd.to_numeric(split_coords[0], errors='coerce')
+        if split_coords.shape[1] >= 2: df['longitude'] = pd.to_numeric(split_coords[1], errors='coerce')
+        if split_coords.shape[1] >= 3: df['_Georreferenciación del punto_altitude'] = pd.to_numeric(split_coords[2], errors='coerce')
+        if split_coords.shape[1] >= 4: df['_Georreferenciación del punto_precision'] = pd.to_numeric(split_coords[3], errors='coerce')
     
-    # Asegurar mismo CRS
+    if 'start' in df.columns:
+        # Usamos 'start' (momento del evento) para mayor fiabilidad operativa
+        start_time = pd.to_datetime(df['start'])
+        
+        # Si es madrugada TN (0-2hs), el reporte pertenece al día anterior
+        def fecha_reporte_corregida(x):
+            d = (x - pd.Timedelta(days=1)).date() if x.hour < 3 else x.date()
+            return d
+
+        df['fecha_reporte'] = start_time.apply(fecha_reporte_corregida)
+        df['inicio_semana_lunes'] = df['fecha_reporte'].apply(
+            lambda d: (d - pd.Timedelta(days=d.weekday()))
+        )
+        
+    df['start'] = pd.to_datetime(df['start'])
+    df['Turno'] = df['start'].apply(asignar_turno)
+    return df
+
+def clasificar_localizacion(puntos_gdf, palermo_gdf, comunas_gdf, declared_flash=None):
     puntos_gdf = puntos_gdf.to_crs("EPSG:4326")
     palermo_gdf = palermo_gdf.to_crs("EPSG:4326")
     comunas_gdf = comunas_gdf.to_crs("EPSG:4326")
-
-    # Inicializar como None
     puntos_gdf['Localizacion'] = None
 
-    # PASO 1: Clasificar Palermo Norte como 14.5
+    # --- Clasificación base por GPS ---
     puntos_en_palermo = gpd.sjoin(puntos_gdf, palermo_gdf, how="inner", predicate='within')
     if not puntos_en_palermo.empty:
-        print(f"   ✅ {len(puntos_en_palermo)} puntos clasificados como Palermo Norte (14.5).")
         puntos_gdf.loc[puntos_en_palermo.index, 'Localizacion'] = 14.5
 
-    # PASO 2: Clasificar por comunas (solo puntos aún NO clasificados)
     mask_clasificados = puntos_gdf['Localizacion'].notna()
     puntos_para_comunas = puntos_gdf[~mask_clasificados]
 
     if not puntos_para_comunas.empty:
         puntos_en_comunas = gpd.sjoin(puntos_para_comunas, comunas_gdf, how="inner", predicate='within')
-        
         if not puntos_en_comunas.empty:
-            # Buscar columna de comuna dinámicamente
-            comuna_col_found = None
-            possible_cols = ['comunas', 'COMUNAS', 'comuna', 'COMUNA', 'NAM', 'ID', 'OBJETO', 'barrio']
-            
-            for col in possible_cols:
-                if col in puntos_en_comunas.columns:
-                    comuna_col_found = col
-                    break
-            
-            if comuna_col_found:
-                # Convertir a float para mantener tipo numérico
-                valores_numericos = pd.to_numeric(puntos_en_comunas[comuna_col_found], errors='coerce')
-                puntos_gdf.loc[puntos_en_comunas.index, 'Localizacion'] = valores_numericos
-                print(f"   ✅ {len(puntos_en_comunas)} puntos clasificados por comuna.")
-    
-    # Localizacion es float: 14.5=Palermo, 1.0-15.0=Comunas, None=Fuera
+            possible_cols = ['comunas', 'COMUNAS', 'comuna', 'COMUNA', 'NAM', 'ID', 'OBJETO']
+            comuna_col = next((c for c in possible_cols if c in puntos_en_comunas.columns), None)
+            if comuna_col:
+                puntos_gdf.loc[puntos_en_comunas.index, 'Localizacion'] = pd.to_numeric(puntos_en_comunas[comuna_col], errors='coerce')
+
+    # --- Override por flash declarado (solo registros con el campo completo) ---
+    if declared_flash is not None and declared_flash.notna().any():
+        puntos_metric = puntos_gdf.to_crs(CRS_METRICO)
+        palermo_metric = palermo_gdf.to_crs(CRS_METRICO)
+        comunas_metric = comunas_gdf.to_crs(CRS_METRICO)
+
+        possible_cols = ['comunas', 'COMUNAS', 'comuna', 'COMUNA', 'NAM', 'ID', 'OBJETO']
+        comuna_col = next((c for c in possible_cols if c in comunas_metric.columns), None)
+
+        overrides = 0
+        for idx, flash_val in declared_flash.items():
+            flash_str = str(flash_val) if pd.notna(flash_val) else None
+            if flash_str not in FLASH_TO_LOCALIZACION:
+                continue  # '4' (Otro) o nulo → mantener GPS
+
+            declared_loc = FLASH_TO_LOCALIZACION[flash_str]
+            gps_loc = puntos_gdf.loc[idx, 'Localizacion']
+
+            if gps_loc == declared_loc:
+                continue  # GPS y declaración coinciden, nada que hacer
+
+            # Obtener polígono de la zona declarada en CRS métrico
+            if declared_loc == 14.5:
+                zone_polygon = palermo_metric.union_all() if hasattr(palermo_metric, 'union_all') else palermo_metric.unary_union
+            elif comuna_col:
+                zone_rows = comunas_metric[pd.to_numeric(comunas_metric[comuna_col], errors='coerce') == declared_loc]
+                if zone_rows.empty:
+                    continue
+                zone_polygon = zone_rows.union_all() if hasattr(zone_rows, 'union_all') else zone_rows.unary_union
+            else:
+                continue
+
+            # Si el punto cae dentro del buffer de 100m del borde → override
+            if zone_polygon.buffer(100).contains(puntos_metric.loc[idx, 'geometry']):
+                puntos_gdf.loc[idx, 'Localizacion'] = declared_loc
+                overrides += 1
+
+        if overrides:
+            print(f"  📍 Flash declarado: {overrides} punto(s) reasignado(s) por proximidad al borde (<100m)")
+
     return puntos_gdf['Localizacion']
 
-def obtener_ids_existentes_neon():
-    """
-    Obtiene los _uuid existentes desde Neon PostgreSQL.
-    Retorna un set de IDs para comparación rápida.
-    """
-    print("--- Consultando IDs existentes en Neon PostgreSQL ---")
+# --- 4. PERSISTENCIA Y ENRIQUECIMIENTO ---
+
+def enrich_existing_data(engine):
+    """Completa las columnas fecha_reporte e inicio_semana_lunes para registros existentes usando SQL directo para eficiencia"""
+    print("🔍 Enriqueciendo registros en Neon (vía SQL)...")
     
-    if not DATABASE_URL:
-        print("   ⚠️  DATABASE_URL no configurada, retornando set vacío")
-        return set()
+    # SQL para calcular fecha_reporte e inicio_semana_lunes directamente en la base
+    # La lógica es: restar 3 horas a _submission_time, luego truncar a fecha.
+    # Para inicio de semana (Lunes): restar (dia_de_la_semana - 1) dias.
+    # En Postgres: extract(isodow from date) devuelve 1 para Lunes, 7 para Domingo.
+    
+    enrich_sql = text(f"""
+        UPDATE "{NEON_TABLE_NAME}"
+        SET 
+            "fecha_reporte" = ("start"::timestamp)::date,
+            "inicio_semana_lunes" = (
+                ("start"::timestamp)::date - 
+                (extract(isodow from ("start"::timestamp)::date)::int - 1) * interval '1 day'
+            )::date
+        WHERE "fecha_reporte" IS NULL OR "inicio_semana_lunes" IS NULL
+    """)
     
     try:
-        engine = create_engine(DATABASE_URL)
-        
-        # Consulta solo la columna _uuid para eficiencia
-        query = f'SELECT "_uuid" FROM {NEON_TABLE_NAME}'
-        
-        with engine.connect() as connection:
-            result = pd.read_sql(query, connection)
-            
-        engine.dispose()
-        
-        if result.empty:
-            print("   ℹ️  Tabla vacía en Neon PostgreSQL (primera ejecución)")
-            return set()
-        
-        ids_existentes = set(result['_uuid'].astype(str))
-        print(f"   ✅ {len(ids_existentes)} registros existentes encontrados en Neon")
-        return ids_existentes
-        
+        with engine.connect() as conn:
+            result = conn.execute(enrich_sql)
+            conn.commit()
+            print(f"✅ Enriquecimiento completado. Registros afectados: {result.rowcount}")
     except Exception as e:
-        print(f"   ⚠️  Error al consultar Neon PostgreSQL: {e}")
-        print("   ℹ️  Continuando con set vacío (se tratarán todos como nuevos)")
-        return set()
+        print(f"⚠️ Error en enriquecimiento SQL: {e}")
+        raise e
 
-def subir_a_neon(df):
-    """
-    Sube el DataFrame a Neon PostgreSQL usando SQLAlchemy.
-    Trabaja sobre una copia para no afectar los datos de Sheets.
-    IMPORTANTE: Mantiene nombres de columnas EXACTOS (con tildes, espacios, etc.)
-    ya que PostgreSQL los soporta con comillas dobles.
-    MODO: APPEND (no sobrescribe datos existentes)
-    """
-    print("--- Preparando datos para Neon PostgreSQL ---")
-    
-    # 1. Validar DATABASE_URL
-    if not DATABASE_URL:
-        raise ValueError("DATABASE_URL no está configurada en las variables de entorno (.env)")
-    
-    # 2. Clonar DataFrame
+def subir_a_neon(df, engine):
     df_neon = df.copy()
-    
-    # 3. Sanitización de tipos complejos (listas/diccionarios)
-    # NOTA: NO limpiamos nombres de columnas porque Neon espera los nombres EXACTOS
     for col in df_neon.columns:
-        df_neon[col] = df_neon[col].apply(
-            lambda x: str(x) if isinstance(x, (list, dict)) else x
-        )
-    print(f"   ✅ Tipos de datos sanitizados")
+        df_neon[col] = df_neon[col].apply(lambda x: str(x) if isinstance(x, (list, dict)) else x)
     
-    # 4. Crear engine de SQLAlchemy con SSL
-    print(f"   🔌 Conectando a Neon PostgreSQL...")
+    df_neon = df_neon.replace([np.inf, -np.inf], np.nan)
+    df_neon = df_neon.where(pd.notnull(df_neon), None)
+    
+    print(f"📤 Subiendo {len(df_neon)} registros a {NEON_TABLE_NAME}...")
+    df_neon.to_sql(name=NEON_TABLE_NAME, con=engine, if_exists='append', index=False, method='multi')
+
+# --- 5. MAIN ---
+
+def main():
+    print(">>> INICIO DE PROCESO <<<")
+    
+    if not DATABASE_URL:
+        print("❌ ERROR: DATABASE_URL no configurada.")
+        return
+
     engine = create_engine(DATABASE_URL)
     
-    # 5. Validar conexión
+    # 1. Preparar conexión
+    engine = create_engine(DATABASE_URL)
+
+    # 2. Obtener momento de corte (último registro en Neon)
+    ultimo_timestamp = None
     try:
-        with engine.connect() as connection:
-            print(f"   ✅ Conexión a Neon PostgreSQL exitosa (SSL habilitado)")
+        with engine.connect() as conn:
+            res = conn.execute(text(f'SELECT MAX("_submission_time") FROM "{NEON_TABLE_NAME}"'))
+            ultimo_timestamp = res.scalar()
     except Exception as e:
-        raise ConnectionError(f"Error al conectar con Neon PostgreSQL: {e}")
-    
-    # 6. Carga a Neon PostgreSQL en modo APPEND
-    print(f"   📤 Subiendo datos a tabla: {NEON_TABLE_NAME}")
-    print(f"   📋 Columnas a cargar: {len(df_neon.columns)}")
-    
-    df_neon.to_sql(
-        name=NEON_TABLE_NAME,
-        con=engine,
-        if_exists='append',  # CAMBIO CRÍTICO: append en lugar de replace
-        index=False,
-        method='multi'
-    )
-    
-    print(f"   ✅ {len(df_neon)} registros agregados exitosamente a Neon PostgreSQL")
-    
-    # 7. Cerrar conexión
-    engine.dispose()
+        print(f"ℹ️ No se pudo obtener el último timestamp (posible tabla vacía): {e}")
 
-def asignar_recorrido(gdf, poligonos):
-    print("--- Clasificando Recorridos ---")
-    resultado = pd.Series('', index=gdf.index, dtype=object)
-    for nombre, poligono in poligonos.items():
-        dentro = gdf.within(poligono)
-        if dentro.any():
-            resultado.loc[dentro] = nombre
-    return resultado
-
-def procesar_datos_geoespaciales_total(df_kobo):
-    print("Separando coordenadas latitud/longitud/altitud/precisión...")
-    if 'geo_ref/geo_punto' in df_kobo.columns:
-        split_coords = df_kobo['geo_ref/geo_punto'].astype(str).str.split(' ', expand=True)
-        
-        if split_coords.shape[1] >= 1:
-            df_kobo['latitude'] = pd.to_numeric(split_coords[0], errors='coerce')
-        if split_coords.shape[1] >= 2:
-            df_kobo['longitude'] = pd.to_numeric(split_coords[1], errors='coerce')
-        if split_coords.shape[1] >= 3:
-            df_kobo['_Georreferenciación del punto_altitude'] = pd.to_numeric(split_coords[2], errors='coerce')
-        else:
-            df_kobo['_Georreferenciación del punto_altitude'] = 0
-        
-        if split_coords.shape[1] >= 4:
-            df_kobo['_Georreferenciación del punto_precision'] = pd.to_numeric(split_coords[3], errors='coerce')
-        else:
-            df_kobo['_Georreferenciación del punto_precision'] = 0
-    
-    df_kobo['start'] = pd.to_datetime(df_kobo['start'])
-    # Limpieza vital: Solo filas con geo válida
-    df_kobo.dropna(subset=['latitude', 'longitude'], inplace=True)
-    
-    df_kobo['Turno'] = df_kobo['start'].apply(asignar_turno)
-
-    puntos_gdf = gpd.GeoDataFrame(
-        df_kobo,
-        geometry=gpd.points_from_xy(df_kobo.longitude, df_kobo.latitude),
-        crs="EPSG:4326"
-    )
-
-    try:
-        # Cargar Palermo Norte KMZ
-        print("📂 Cargando archivo Palermo Norte...")
-        with zipfile.ZipFile(RUTA_KMZ_PALERMO, 'r') as kmz:
-            kml_files = [f for f in kmz.namelist() if f.endswith('.kml')]
-            if kml_files:
-                with kmz.open(kml_files[0]) as kml_file:
-                    palermo_gdf = gpd.read_file(kml_file)
-            else:
-                raise FileNotFoundError("No se encontró KML dentro de Palermo_Norte.kmz")
-        if palermo_gdf.crs is None: palermo_gdf.set_crs("EPSG:4326", inplace=True)
-        
-        # Cargar comunas SHP
-        print("📂 Cargando shapefile de comunas...")
-        comunas_gdf = gpd.read_file(RUTA_SHP_COMUNAS)
-        
-    except Exception as e:
-        print(f"❌ ERROR FATAL CARGANDO CAPAS: {e}")
-        sys.exit(1)
-
-    poligonos_recorrido = {
-        'Recorrido A': Polygon([(-58.41017, -34.588232), (-58.413901, -34.594177), (-58.413904, -34.599714),(-58.400064, -34.600033), (-58.386224, -34.599855), (-58.398154, -34.59498),(-58.404592, -34.593108), (-58.386524, -34.595263), (-58.41017, -34.588232)]),
-        'Recorrido B': Polygon([(-58.389185, -34.584593), (-58.395365, -34.587137), (-58.400944, -34.594168),(-58.398154, -34.59498), (-58.386524, -34.595263), (-58.383284, -34.587544),(-58.388112, -34.59256), (-58.389185, -34.584593)]),
-        'Recorrido C': Polygon([(-58.400944, -34.594168), (-58.395365, -34.587137), (-58.389185, -34.584593),(-58.398455, -34.580212), (-58.407295, -34.581837), (-58.404592, -34.593108),(-58.41017, -34.588232), (-58.400944, -34.594168)])
-    }
-
-    df_kobo['Localizacion'] = clasificar_localizacion(puntos_gdf, palermo_gdf, comunas_gdf)
-    df_kobo['Poligono'] = asignar_recorrido(puntos_gdf, poligonos_recorrido)
-
-    return df_kobo
-
-
-# --- 4. MAIN EJECUCIÓN ---
-
-if __name__ == '__main__':
-    print(">>> INICIO DE PROCESO INTEGRADO (EXTRACCIÓN COMPLETA + GEOESPACIAL) <<<")
-    
-    # 1. EXTRACCIÓN COMPLETA DE KOBO (con expansión de select_multiple)
-    try:
-        df_raw = extraer_kobo_completo()
-    except Exception as e:
-        print(f"❌ Error en extracción de Kobo: {e}")
-        sys.exit(1)
-
+    # 3. Extraer datos nuevos de Kobo (filtrados por tiempo si es posible)
+    df_raw = extraer_kobo_completo(since_timestamp=ultimo_timestamp)
     if df_raw.empty:
-        print("⚠️ No hay datos nuevos de Kobo")
-        sys.exit(0)
+        print("✅ Todo actualizado. No hay registros nuevos en Kobo.")
+        return
 
-    # 2. PROCESAR GEOESPACIALMENTE
-    print("2. Procesando lógica geoespacial...")
-    df_procesado = procesar_datos_geoespaciales_total(df_raw)
+    # 4. Refuerzo de seguridad: Filtrar por IDs existentes (doble chequeo)
+    with engine.connect() as conn:
+        existentes = pd.read_sql(text(f'SELECT "_uuid" FROM "{NEON_TABLE_NAME}"'), conn)['_uuid'].astype(str).tolist()
     
-    if df_procesado is None or df_procesado.empty: sys.exit(1)
+    df_nuevos = df_raw[~df_raw['_uuid'].astype(str).isin(existentes)].copy()
+    if df_nuevos.empty:
+        print("✅ Todo actualizado. No hay registros nuevos (post-filtro UUID).")
+        return
 
-    # 3. VERIFICACIÓN DE DUPLICADOS DESDE NEON (FUENTE DE VERDAD)
-    print("3. Verificando duplicados desde Neon PostgreSQL...")
-    ids_existentes = obtener_ids_existentes_neon()
+    print(f"📝 Procesando {len(df_nuevos)} registros nuevos...")
     
-    # 3.5 PREPARAR GOOGLE SHEETS (solo para carga posterior)
-    print("3.5. Preparando conexión a Google Sheets...")
-    scope = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets',
-             "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
-
-    if "GOOGLE_CREDENTIALS_JSON" in os.environ:
-        creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS_JSON"])
-        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+    # 4. Procesar y clasificar
+    df_nuevos = procesar_coords_y_fechas(df_nuevos)
+    df_nuevos.dropna(subset=['latitude', 'longitude'], inplace=True)
+    
+    # Cargar capas Geo
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    ruta_kmz = next((os.path.join(root, f) for root, _, files in os.walk(BASE_DIR) for f in files if 'palermo' in f.lower() and f.endswith('.kmz')), None)
+    ruta_shp = next((os.path.join(root, f) for root, _, files in os.walk(BASE_DIR) for f in files if f == 'comunas.shp'), None)
+    
+    if ruta_kmz and ruta_shp:
+        with zipfile.ZipFile(ruta_kmz, 'r') as kmz:
+            kml_name = [f for f in kmz.namelist() if f.endswith('.kml')][0]
+            with kmz.open(kml_name) as kml:
+                palermo_gdf = gpd.read_file(kml)
+        comunas_gdf = gpd.read_file(ruta_shp)
+        
+        puntos_gdf = gpd.GeoDataFrame(df_nuevos, geometry=gpd.points_from_xy(df_nuevos.longitude, df_nuevos.latitude), crs="EPSG:4326")
+        # Pasar flash declarado si existe (campo nuevo desde 2026-03-17, NULL en histórico)
+        declared_flash = df_nuevos.get('geo_ref/relevamiento_flash')
+        df_nuevos['Localizacion'] = clasificar_localizacion(puntos_gdf, palermo_gdf, comunas_gdf, declared_flash)
     else:
-        # Buscar archivo de credenciales con múltiples nombres posibles
-        possible_names = ['kobo-looker-connect.json', 'credenciales.json', 'service_account.json']
-        ruta_creds = None
-        
-        for name in possible_names:
-            for root, _, files in os.walk(BASE_DIR):
-                if name in files:
-                    ruta_creds = os.path.join(root, name)
-                    print(f"✅ Credenciales encontradas: {name}")
-                    break
-            if ruta_creds:
-                break
-        
-        if not ruta_creds:
-            print("❌ ERROR: No se encontró archivo de credenciales")
-            print(f"   Buscando: {', '.join(possible_names)}")
-            sys.exit(1)
-        
-        creds = ServiceAccountCredentials.from_json_keyfile_name(ruta_creds, scope)
+        print("⚠️ No se encontraron archivos geográficos. Saltando clasificación.")
 
-    client = gspread.authorize(creds)
-    sheet = client.open(NOMBRE_SPREADSHEET).worksheet(NOMBRE_HOJA)
+    # 5. Formateo y Subida
+    df_nuevos['hora_start'] = df_nuevos['start'].dt.strftime('%H:%M:%S')
+    # Mantenemos el timestamp completo para 'start' para evitar desfasajes en enriquecimiento SQL
+    df_nuevos['start'] = df_nuevos['start'].dt.strftime('%Y-%m-%d %H:%M:%S')
     
-    # 4. FILTRAR NUEVOS
-    if '_uuid' in df_procesado.columns:
-        df_procesado['_uuid'] = df_procesado['_uuid'].astype(str)
-        df_nuevos_final = df_procesado[~df_procesado['_uuid'].isin(ids_existentes)].copy()
-    else:
-        df_nuevos_final = df_procesado
-
-    if df_nuevos_final.empty:
-        print(">>> Todo actualizado. No hay registros nuevos. <<<")
-        sys.exit(0)
-
-    print(f"   > Registros NUEVOS a subir: {len(df_nuevos_final)}")
-
-    # 5. FORMATEO ESTRICTO
-    print("4. Aplicando formatos estrictos...")
-    
-    df_nuevos_final['hora_start'] = df_nuevos_final['start'].dt.strftime('%H:%M:%S')
-    df_nuevos_final['start'] = df_nuevos_final['start'].dt.strftime('%Y-%m-%d')
-
+    # Renombrar para compatibilidad (Sheets/Neon)
     rename_map = {
         'geo_ref/geo_punto': 'Georreferenciación del punto',
         'datos_per/cant_pers': 'Cantidad de personas en situación de calle observadas',
         'caracteristicas_puntos/caracteristicas_observada': 'Características observables del punto',
-        'caracteristicas_puntos/estructura': 'estructura',
-        'caracteristicas_puntos/colchon': 'colchon', 
-        'caracteristicas_puntos/NNyA_observa': 'Se observan niños/as en el punto'
+        'caracteristicas_puntos/NNyA_observa': 'Se observan niños/as en el punto',
+        'geo_ref/relevamiento_flash': 'tipo_flash',
+        'geo_ref/relevamiento_flash_otro': 'tipo_flash_otro'
     }
-    df_nuevos_final.rename(columns=rename_map, inplace=True)
-
-
-    columnas_deseadas = [
+    df_nuevos.rename(columns=rename_map, inplace=True)
+    
+    # Asegurar columnas (incluidas las nuevas)
+    columnas_finales = [
         'Turno', 'start', 'hora_start', 'end', 'today', 'username', 'deviceid',
         'Georreferenciación del punto', 'latitude', 'longitude',
         '_Georreferenciación del punto_altitude', '_Georreferenciación del punto_precision',
         'Cantidad de personas en situación de calle observadas','La/s persona/s esta/n',
-        'Características observables del punto', 'estructura', 'colchon',
-        'Características observables del punto/Basura, ropa, bolsos, etc',
-        'Características observables del punto/No se observan cosas',
-        'Se observan niños/as en el punto', 
-        'datos_per/sit_calle',  # Campo sit_calle del API
-        '_id', '_uuid', '_submission_time', 
-        '_validation_status', '_notes', '_status', '_submitted_by', '__version__', 
-        '_tags', '_index', 'Poligono', 'Localizacion'
+        'Características observables del punto', 'Se observan niños/as en el punto',
+        'datos_per/sit_calle', 'fecha_reporte', 'inicio_semana_lunes',
+        '_id', '_uuid', '_submission_time', '_status', '_submitted_by', 'Localizacion',
+        'tipo_flash', 'tipo_flash_otro'
     ]
-    
-    df_final = df_nuevos_final.reindex(columns=columnas_deseadas)
+    # Usar las que existan en el df para evitar reindex con NaNs innecesarios si no vienen
+    cols_presentes = [c for c in columnas_finales if c in df_nuevos.columns]
+    df_final = df_nuevos[cols_presentes]
 
-    # FORMATO: Numéricos (Float)
-    cols_float = ['latitude', 'longitude', '_Georreferenciación del punto_altitude', '_Georreferenciación del punto_precision']
-    for col in cols_float:
-        if col in df_final.columns:
-            df_final[col] = pd.to_numeric(df_final[col], errors='coerce')
-
-    # FORMATO: Enteros (SOLO los que son realmente numéricos)
-    # He quitado "Características..." y "Se observan niños..." porque son Texto.
-    cols_enteros = ['Cantidad de personas en situación de calle observadas']
-    for col_cant in cols_enteros:
-        if col_cant in df_final.columns:
-            df_final[col_cant] = pd.to_numeric(df_final[col_cant], errors='coerce').fillna(0).astype(int)
-
-    # FORMATO: Localización (ya viene como float desde clasificar_localizacion)
-    # 14.5 = Palermo Norte, 2.5 = Anillo Digital C2, 1.0-15.0 = Comunas, None = Fuera de zona
-    if 'Localizacion' in df_final.columns:
-        df_final['Localizacion'] = pd.to_numeric(df_final['Localizacion'], errors='coerce')
-
-    # LIMPIEZA CRÍTICA PARA JSON (Evita error 'Out of range float values' y 'list_value')
-    
-    def clean_complex_types(val):
-        if isinstance(val, (list, dict)):
-            return str(val)
-        return val
-
-    for col in df_final.columns:
-        df_final[col] = df_final[col].apply(clean_complex_types)
-
-    # 2. Reemplazar Infinito por NaN
-    df_final = df_final.replace([np.inf, -np.inf], np.nan)
-
-    # 3. Convertir DF a object para permitir None
-    df_final = df_final.astype(object)
-
-    # 4. Reemplazar NaN con None
-    df_final = df_final.where(pd.notnull(df_final), None)
-
-    # 5. SUBIR A NEON POSTGRESQL (FUENTE DE VERDAD - PRIORIDAD)
-    print("5. Subiendo a Neon PostgreSQL (fuente de verdad)...")
     try:
-        subir_a_neon(df_final)
-        print("   ✅ Carga a Neon PostgreSQL exitosa")
+        subir_a_neon(df_final, engine)
+        print("✅ Subida a Neon exitosa.")
+        
+        # 6. CIERRE DE SEGURIDAD: Enriquecer datos (asegura consistencia de lo recién subido)
+        try:
+            enrich_existing_data(engine)
+        except Exception as e:
+            print(f"⚠️ Error en enriquecimiento final: {e}")
+            
     except Exception as e:
-        print(f"   ❌ Error CRÍTICO en Neon PostgreSQL: {e}")
-        print(f"   ⚠️  No se subirá a Google Sheets hasta resolver el error en Neon")
+        print(f"❌ Error subiendo a Neon: {e}")
         sys.exit(1)
-    
-    # 6. SUBIR A GOOGLE SHEETS (secundario, para visualización)
-    print("6. Subiendo a Google Sheets (sincronización)...")
-    try:
-        if len(ids_existentes) == 0:
-            sheet.clear()
-            sheet.update(values=[df_final.columns.values.tolist()] + df_final.values.tolist(), value_input_option='USER_ENTERED')
-        else:
-            headers_sheet = sheet.row_values(1)
-            if not headers_sheet: headers_sheet = columnas_deseadas
-            
-            df_append = df_final.reindex(columns=headers_sheet)
-            df_append = df_append.astype(object)
-            df_append = df_append.where(pd.notnull(df_append), None)
-            
-            sheet.append_rows(values=df_append.values.tolist(), value_input_option='USER_ENTERED')
-        print("   ✅ Sincronización con Google Sheets exitosa")
-    except Exception as e:
-        print(f"   ⚠️  Error en Google Sheets (no crítico): {e}")
-        print(f"   ℹ️  Los datos ya están en Neon PostgreSQL (fuente de verdad)")
 
-    print(">>> ÉXITO: Carga completada. <<<")
+    # 6. Google Sheets (Opcional si hay credenciales)
+    # Preservation of the logic as requested
+    try:
+        # Intento de conexión simplificado
+        possible_creds = ['kobo-looker-connect.json', 'credenciales.json']
+        ruta_creds = next((os.path.join(root, f) for root, _, files in os.walk(BASE_DIR) for f in files if f in possible_creds), None)
+        
+        if ruta_creds:
+            scope = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets', "https://www.googleapis.com/auth/drive.file"]
+            creds = ServiceAccountCredentials.from_json_keyfile_name(ruta_creds, scope)
+            client = gspread.authorize(creds)
+            sheet = client.open(NOMBRE_SPREADSHEET).worksheet(NOMBRE_HOJA)
+            
+            # Formatear para Sheets (sin NaNs)
+            df_sheets = df_final.fillna("").astype(str)
+            sheet.append_rows(df_sheets.values.tolist(), value_input_option='USER_ENTERED')
+            print("✅ Datos sincronizados con Google Sheets.")
+        else:
+            print("ℹ️ No se encontraron credenciales de Google Sheets. Saltando paso.")
+    except Exception as e:
+        print(f"⚠️ Error en Google Sheets: {e}")
+
+    print(">>> FIN DE PROCESO <<<")
+
+if __name__ == "__main__":
+    main()
