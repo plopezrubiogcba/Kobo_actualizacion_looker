@@ -22,7 +22,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 TOKEN_KOBO = os.environ.get("KOBO_TOKEN", "b6a9c8897db4c180b9eff560e890edfb394313db")
-UID_KOBO = "aH2SygyBTRCkqCgBtu4m3R"
+UID_KOBO = "aPou2eJThDtn45mdmfrbaA"
 URL_KOBO = f"https://kf.kobotoolbox.org/api/v2/assets/{UID_KOBO}/data.json"
 
 # GOOGLE SHEETS

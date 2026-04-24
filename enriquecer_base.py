@@ -1,3 +1,7 @@
+import sys
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
+
 import os
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
