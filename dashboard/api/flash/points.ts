@@ -17,7 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         "_id"::text AS id,
         latitude::float AS lat,
         longitude::float AS lon,
-        LEAST(COALESCE("Cantidad de personas en situación de calle observadas", 0), 15)::int AS personas,
+        COALESCE("Cantidad de personas en situación de calle observadas", 0)::int AS personas,
         "Turno" AS turno,
         "Localizacion" AS localizacion,
         to_char("fecha_reporte", 'YYYY-MM-DD') AS fecha
@@ -27,6 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         AND "fecha_reporte" BETWEEN ${desde}::date AND ${hasta}::date
         AND (${comunas.length} = 0 OR "Localizacion" IS NULL OR "Localizacion" = ANY(${comunas}))
         AND (${turnos.length} = 0 OR "Turno" IS NULL OR "Turno" = ANY(${turnos}))
+        AND ("Cantidad de personas en situación de calle observadas" IS NULL OR "Cantidad de personas en situación de calle observadas" <= 11)
       LIMIT 5000
     `
     res.status(200).json(rows)

@@ -22,12 +22,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           SELECT
             to_char(date_trunc(${granularity}, "fecha_reporte"), ${fmt}) AS bucket,
             COUNT(*)::int AS puntos,
-            COALESCE(SUM(LEAST(COALESCE("Cantidad de personas en situación de calle observadas", 0), 15)), 0)::int AS personas
+            COALESCE(SUM(COALESCE("Cantidad de personas en situación de calle observadas", 0)), 0)::int AS personas
           FROM kobo_flash_consolidado
           WHERE
             "fecha_reporte" BETWEEN ${desde}::date AND ${hasta}::date
             AND (${comunas.length} = 0 OR "Localizacion" IS NULL OR "Localizacion" = ANY(${comunas}))
             AND (${turnos.length} = 0 OR "Turno" IS NULL OR "Turno" = ANY(${turnos}))
+            AND ("Cantidad de personas en situación de calle observadas" IS NULL OR "Cantidad de personas en situación de calle observadas" <= 11)
           GROUP BY 1
           ORDER BY 1 DESC
           LIMIT ${topN}
@@ -37,12 +38,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       sql`
         SELECT
           COUNT(*)::int AS puntos,
-          COALESCE(SUM(LEAST(COALESCE("Cantidad de personas en situación de calle observadas", 0), 15)), 0)::int AS personas
+          COALESCE(SUM(COALESCE("Cantidad de personas en situación de calle observadas", 0)), 0)::int AS personas
         FROM kobo_flash_consolidado
         WHERE
           "fecha_reporte" BETWEEN ${desde}::date AND ${hasta}::date
           AND (${comunas.length} = 0 OR "Localizacion" IS NULL OR "Localizacion" = ANY(${comunas}))
           AND (${turnos.length} = 0 OR "Turno" IS NULL OR "Turno" = ANY(${turnos}))
+          AND ("Cantidad de personas en situación de calle observadas" IS NULL OR "Cantidad de personas en situación de calle observadas" <= 11)
       `,
     ])
 
