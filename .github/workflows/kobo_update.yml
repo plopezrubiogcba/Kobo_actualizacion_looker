@@ -10,6 +10,8 @@ on:
 jobs:
   run-etl-process:
     runs-on: ubuntu-latest
+    env:
+      TZ: America/Argentina/Buenos_Aires
 
     steps:
       - name: Checkout del código

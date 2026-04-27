@@ -45,6 +45,8 @@ FLASH_TO_LOCALIZACION = {
 }
 CRS_METRICO = "EPSG:22185"  # Gauss-Kruger Faja 5, métrico para Buenos Aires
 
+AR_TZ = 'America/Argentina/Buenos_Aires'
+
 # --- 2. FUNCIONES DE APOYO Y EXTRACCIÓN ---
 
 def obtener_schema_kobo():
@@ -131,20 +133,22 @@ def procesar_coords_y_fechas(df):
         if split_coords.shape[1] >= 4: df['_Georreferenciación del punto_precision'] = pd.to_numeric(split_coords[3], errors='coerce')
     
     if 'start' in df.columns:
-        # Usamos 'start' (momento del evento) para mayor fiabilidad operativa
-        start_time = pd.to_datetime(df['start'])
-        
-        # Si es madrugada TN (0-2hs), el reporte pertenece al día anterior
+        # utc=True absorbe cualquier offset (Kobo -03:00 o UTC naive sin offset)
+        # luego convierte a hora AR y descarta tzinfo para almacenamiento naive
+        start_time = pd.to_datetime(df['start'], utc=True, errors='coerce').dt.tz_convert(AR_TZ).dt.tz_localize(None)
+
         def fecha_reporte_corregida(x):
-            d = (x - pd.Timedelta(days=1)).date() if x.hour < 3 else x.date()
-            return d
+            if pd.isnull(x): return None
+            return (x - pd.Timedelta(days=1)).date() if x.hour < 3 else x.date()
 
         df['fecha_reporte'] = start_time.apply(fecha_reporte_corregida)
         df['inicio_semana_lunes'] = df['fecha_reporte'].apply(
-            lambda d: (d - pd.Timedelta(days=d.weekday()))
+            lambda d: (d - pd.Timedelta(days=d.weekday())) if d else None
         )
-        
-    df['start'] = pd.to_datetime(df['start'])
+
+    df['start'] = pd.to_datetime(df['start'], utc=True, errors='coerce').dt.tz_convert(AR_TZ).dt.tz_localize(None)
+    if 'end' in df.columns:
+        df['end'] = pd.to_datetime(df['end'], utc=True, errors='coerce').dt.tz_convert(AR_TZ).dt.tz_localize(None)
     df['Turno'] = df['start'].apply(asignar_turno)
     return df
 
@@ -225,11 +229,19 @@ def enrich_existing_data(engine):
     
     enrich_sql = text(f"""
         UPDATE "{NEON_TABLE_NAME}"
-        SET 
-            "fecha_reporte" = ("start"::timestamp)::date,
+        SET
+            "fecha_reporte" = CASE
+                WHEN extract(hour from ("start"::timestamp)) < 3
+                THEN ("start"::timestamp)::date - interval '1 day'
+                ELSE ("start"::timestamp)::date
+            END,
             "inicio_semana_lunes" = (
-                ("start"::timestamp)::date - 
-                (extract(isodow from ("start"::timestamp)::date)::int - 1) * interval '1 day'
+                (CASE WHEN extract(hour from ("start"::timestamp)) < 3
+                      THEN ("start"::timestamp)::date - interval '1 day'
+                      ELSE ("start"::timestamp)::date END) -
+                (extract(isodow from (CASE WHEN extract(hour from ("start"::timestamp)) < 3
+                                           THEN ("start"::timestamp)::date - interval '1 day'
+                                           ELSE ("start"::timestamp)::date END))::int - 1) * interval '1 day'
             )::date
         WHERE "fecha_reporte" IS NULL OR "inicio_semana_lunes" IS NULL
     """)
