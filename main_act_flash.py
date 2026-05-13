@@ -93,19 +93,29 @@ def extraer_kobo_completo(since_timestamp=None, uid=None):
     schema = obtener_schema_kobo(uid)
     headers = {"Authorization": f"Token {TOKEN_KOBO}"}
 
-    params = {"limit": 30000}
+    params = {"limit": 1000}
     if since_timestamp:
         print(f"⏳ Buscando registros posteriores a: {since_timestamp}")
         params["query"] = json.dumps({"_submission_time": {"$gt": since_timestamp}})
 
-    resp = requests.get(url_kobo, headers=headers, params=params)
-    resp.raise_for_status()
-    data = resp.json()
+    all_results = []
+    next_url = url_kobo
+    page = 1
+    while next_url:
+        resp = requests.get(next_url, headers=headers, params=params)
+        resp.raise_for_status()
+        data = resp.json()
+        results = data.get('results', [])
+        all_results.extend(results)
+        print(f"  página {page}: {len(results)} registros (total acumulado: {len(all_results)}/{data.get('count', '?')})")
+        next_url = data.get('next')
+        params = {}  # params ya están en la URL de next
+        page += 1
 
-    if not data.get('results'):
+    if not all_results:
         return pd.DataFrame()
 
-    df = pd.json_normalize(data['results'])
+    df = pd.json_normalize(all_results)
 
     for q in schema.get('survey', []):
         if q.get('type') == 'select_multiple':
