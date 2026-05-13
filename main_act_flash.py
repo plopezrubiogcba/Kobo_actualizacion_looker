@@ -22,8 +22,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 TOKEN_KOBO = os.environ.get("KOBO_TOKEN", "b6a9c8897db4c180b9eff560e890edfb394313db")
-UID_KOBO = "aPou2eJThDtn45mdmfrbaA"
-URL_KOBO = f"https://kf.kobotoolbox.org/api/v2/assets/{UID_KOBO}/data.json"
+UID_KOBO_1 = "aH2SygyBTRCkqCgBtu4m3R"  # Flash 1
+UID_KOBO_2 = "aPou2eJThDtn45mdmfrbaA"   # Flash 2
+UIDS_KOBO = [UID_KOBO_1, UID_KOBO_2]
 
 # GOOGLE SHEETS
 NOMBRE_SPREADSHEET = "puntos flash"
@@ -49,9 +50,9 @@ AR_TZ = 'America/Argentina/Buenos_Aires'
 
 # --- 2. FUNCIONES DE APOYO Y EXTRACCIÓN ---
 
-def obtener_schema_kobo():
+def obtener_schema_kobo(uid=UID_KOBO_2):
     headers = {"Authorization": f"Token {TOKEN_KOBO}"}
-    url = f"https://kf.kobotoolbox.org/api/v2/assets/{UID_KOBO}/"
+    url = f"https://kf.kobotoolbox.org/api/v2/assets/{uid}/"
     resp = requests.get(url, headers=headers)
     resp.raise_for_status()
     return resp.json().get('content', {})
@@ -86,33 +87,46 @@ def expandir_select_multiple(df, schema, col_name):
         )
     return df
 
-def extraer_kobo_completo(since_timestamp=None):
-    print("\n📋 EXTRACCIÓN DE KOBO")
-    schema = obtener_schema_kobo()
+def extraer_kobo_completo(since_timestamp=None, uid=None):
+    url_kobo = f"https://kf.kobotoolbox.org/api/v2/assets/{uid}/data.json"
+    print(f"\n📋 EXTRACCIÓN DE KOBO — form: {uid}")
+    schema = obtener_schema_kobo(uid)
     headers = {"Authorization": f"Token {TOKEN_KOBO}"}
-    
+
     params = {"limit": 30000}
     if since_timestamp:
-        # Kobo API v2 usa el parámetro 'query' con sintaxis MongoDB para filtrar
-        # {"_submission_time": {"$gt": "2026-02-18T10:00:00"}}
         print(f"⏳ Buscando registros posteriores a: {since_timestamp}")
         params["query"] = json.dumps({"_submission_time": {"$gt": since_timestamp}})
 
-    resp = requests.get(URL_KOBO, headers=headers, params=params)
+    resp = requests.get(url_kobo, headers=headers, params=params)
     resp.raise_for_status()
     data = resp.json()
-    
+
     if not data.get('results'):
         return pd.DataFrame()
-        
+
     df = pd.json_normalize(data['results'])
-    
+
     for q in schema.get('survey', []):
         if q.get('type') == 'select_multiple':
             field_name = q.get('$xpath', q.get('name'))
             if field_name in df.columns:
                 df = expandir_select_multiple(df, schema, field_name)
     return df
+
+
+def extraer_todos_los_forms(since_timestamp=None):
+    dfs = []
+    for uid in UIDS_KOBO:
+        try:
+            df = extraer_kobo_completo(since_timestamp=since_timestamp, uid=uid)
+            if not df.empty:
+                dfs.append(df)
+        except Exception as e:
+            print(f"⚠️ Error extrayendo form {uid}: {e}")
+    if not dfs:
+        return pd.DataFrame()
+    return pd.concat(dfs, ignore_index=True)
 
 # --- 3. LÓGICA DE NEGOCIO Y GEO ---
 
@@ -289,8 +303,8 @@ def main():
     except Exception as e:
         print(f"ℹ️ No se pudo obtener el último timestamp (posible tabla vacía): {e}")
 
-    # 3. Extraer datos nuevos de Kobo (filtrados por tiempo si es posible)
-    df_raw = extraer_kobo_completo(since_timestamp=ultimo_timestamp)
+    # 3. Extraer datos nuevos de Kobo (Flash 1 + Flash 2)
+    df_raw = extraer_todos_los_forms(since_timestamp=ultimo_timestamp)
     if df_raw.empty:
         print("✅ Todo actualizado. No hay registros nuevos en Kobo.")
         return
