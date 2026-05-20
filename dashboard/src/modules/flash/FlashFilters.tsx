@@ -4,11 +4,23 @@ import type { Granularity, Turno } from './types'
 const TURNOS: Turno[] = ['TM', 'TT', 'TN']
 const TURNO_LABEL: Record<Turno, string> = { TM: 'Madrugada', TT: 'Tarde', TN: 'Noche' }
 
+const ZONA_LABEL: Record<string, string> = {
+  C2:   'C2 — Recoleta',
+  C14:  'C14 — Palermo',
+  C13:  'C13 — Belgrano',
+  C12:  'C12',
+  C1A:  'C1A — Retiro/Recoleta N',
+  C6:   'C6 — Caballito',
+  Otro: 'Sin zona',
+}
+
+const ZONE_ORDER = ['C2', 'C14', 'C13', 'C12', 'C1A', 'C6', 'Otro']
+
 export const FlashFilters = () => {
   const {
     desde, setDesde, hasta, setHasta,
     granularity, setGranularity,
-    comunas, setComunas, allComunas,
+    zonas, setZonas, allZonas,
     turnos, setTurnos,
     topN, setTopN,
   } = useFlashStore()
@@ -22,23 +34,28 @@ export const FlashFilters = () => {
   const GRANS: Granularity[] = ['day', 'week', 'month']
   const GRAN_LABEL: Record<Granularity, string> = { day: 'Día', week: 'Semana', month: 'Mes' }
 
-  const allSelected   = allComunas.every(c => comunas.has(c))
-  const noneSelected  = comunas.size === 0
+  const sortedZonas = [...allZonas].sort((a, b) => {
+    const ia = ZONE_ORDER.indexOf(a), ib = ZONE_ORDER.indexOf(b)
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib)
+  })
 
-  const handleComunaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const allSelected  = sortedZonas.every(z => zonas.has(z))
+  const noneSelected = zonas.size === 0
+
+  const handleZonaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value
     if (val === '__all__') {
-      setComunas(new Set(allComunas))
+      setZonas(new Set(sortedZonas))
     } else {
-      setComunas(new Set([Number(val)]))
+      setZonas(new Set([val]))
     }
   }
 
   const dropdownValue =
     allSelected || noneSelected
       ? '__all__'
-      : comunas.size === 1
-        ? String([...comunas][0])
+      : zonas.size === 1
+        ? [...zonas][0]
         : '__multi__'
 
   return (
@@ -102,21 +119,21 @@ export const FlashFilters = () => {
         ))}
       </div>
 
-      {allComunas.length > 0 && (
+      {allZonas.length > 0 && (
         <div className="flex gap-2 items-center">
-          <span className="text-gray-500 text-xs font-medium">Comuna</span>
+          <span className="text-gray-500 text-xs font-medium">Zona</span>
           <select
             value={dropdownValue}
-            onChange={handleComunaChange}
-            className="border border-gray-300 rounded-lg px-2 py-1.5 text-gray-800 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[120px]"
+            onChange={handleZonaChange}
+            className="border border-gray-300 rounded-lg px-2 py-1.5 text-gray-800 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[150px]"
           >
             <option value="__all__">Todas</option>
             {dropdownValue === '__multi__' && (
               <option value="__multi__" disabled>Varias seleccionadas</option>
             )}
-            {allComunas.map(c => (
-              <option key={c} value={String(c)}>
-                {c === 14.5 ? 'Palermo Norte' : `Comuna ${c}`}
+            {sortedZonas.map(z => (
+              <option key={z} value={z}>
+                {ZONA_LABEL[z] ?? z}
               </option>
             ))}
           </select>

@@ -13,7 +13,7 @@ export interface FlashPoint {
   lon: number
   personas: number
   turno: Turno
-  localizacion: number | null
+  localizacion: string | null
   fecha: string
 }
 
@@ -25,5 +25,5 @@ export interface FlashSummary {
 export interface FlashMeta {
   date_min: string
   date_max: string
-  comunas: number[]
+  zonas: string[]
 }

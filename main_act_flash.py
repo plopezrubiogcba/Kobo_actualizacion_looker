@@ -14,7 +14,6 @@ import os
 import json
 import sys
 import re
-import zipfile
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
@@ -37,13 +36,31 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
 
 NEON_TABLE_NAME = 'kobo_flash_consolidado'
 
-# Mapeo flash declarado (código Kobo) → Localizacion
+# Mapeo tipo_flash (código Kobo) → zona Flash
 FLASH_TO_LOCALIZACION = {
-    '1': 2,    # Flash Recoleta  → Comuna 2
-    '2': 14.5, # Flash Palermo Norte → polígono priorizado (dentro de comuna 14)
-    '3': 13,   # Flash Belgrano  → Comuna 13
+    '1': 'C2',   # Flash Recoleta   → Zona C2
+    '2': 'C14',  # Flash Palermo    → Zona C14
+    '3': 'C13',  # Flash Belgrano   → Zona C13
+    '5': 'C12',  # Flash C12        → Zona C12
+    '6': 'C1A',  # Flash C1/1A      → Zona C1A
+    '7': 'C6',   # Flash Caballito  → Zona C6
     # '4' = Otro → solo GPS
 }
+
+# Prioridad de asignación cuando un punto cae en más de un polígono
+ZONE_PRIORITY = ['C2', 'C14', 'C13', 'C12', 'C1A', 'C6']
+
+# Layer name (em dash) en el GeoJSON → código de zona
+LAYER_TO_ZONE = {
+    'Zonas Flash — Poligonos C2':     'C2',
+    'Zonas Flash — Comuna 14':        'C14',
+    'Zonas Flash — Comuna 13':        'C13',
+    'Zonas Flash — 12':               'C12',
+    'Zonas Flash — 1 A':              'C1A',
+    'Zonas Flash — Zona de Control':  'C6',
+    # 'Zona de Frontera' ignorada
+}
+
 CRS_METRICO = "EPSG:22185"  # Gauss-Kruger Faja 5, métrico para Buenos Aires
 
 AR_TZ = 'America/Argentina/Buenos_Aires'
@@ -176,36 +193,47 @@ def procesar_coords_y_fechas(df):
     df['Turno'] = df['start'].apply(asignar_turno)
     return df
 
-def clasificar_localizacion(puntos_gdf, palermo_gdf, comunas_gdf, declared_flash=None):
+def cargar_zonas_flash(geojson_path):
+    """Lee el GeoJSON y devuelve dict zona→GeoDataFrame (EPSG:4326)."""
+    gdf = gpd.read_file(geojson_path)
+    zonas = {}
+    for layer_name, zona_code in LAYER_TO_ZONE.items():
+        subset = gdf[gdf['layer'] == layer_name].copy()
+        if not subset.empty:
+            if subset.crs is None:
+                subset = subset.set_crs("EPSG:4326")
+            else:
+                subset = subset.to_crs("EPSG:4326")
+            zonas[zona_code] = subset
+        else:
+            print(f"  ⚠️ Capa no encontrada en GeoJSON: {layer_name!r}")
+    return zonas
+
+
+def clasificar_localizacion(puntos_gdf, zonas_dict, declared_flash=None):
+    """Asigna zona Flash a cada punto según prioridad. Zonas: C2>C14>C13>C12>C1A>C6."""
     puntos_gdf = puntos_gdf.to_crs("EPSG:4326")
-    palermo_gdf = palermo_gdf.to_crs("EPSG:4326")
-    comunas_gdf = comunas_gdf.to_crs("EPSG:4326")
+    puntos_gdf = puntos_gdf.copy()
     puntos_gdf['Localizacion'] = None
 
-    # --- Clasificación base por GPS ---
-    puntos_en_palermo = gpd.sjoin(puntos_gdf, palermo_gdf, how="inner", predicate='within')
-    if not puntos_en_palermo.empty:
-        puntos_gdf.loc[puntos_en_palermo.index, 'Localizacion'] = 14.5
+    # --- Clasificación base por GPS (prioridad estricta) ---
+    for zona_code in ZONE_PRIORITY:
+        if zona_code not in zonas_dict:
+            continue
+        sin_zona = puntos_gdf[puntos_gdf['Localizacion'].isna()]
+        if sin_zona.empty:
+            break
+        zona_gdf = zonas_dict[zona_code].to_crs("EPSG:4326")
+        joined = gpd.sjoin(sin_zona, zona_gdf[['geometry']], how="inner", predicate='within')
+        if not joined.empty:
+            puntos_gdf.loc[joined.index, 'Localizacion'] = zona_code
 
-    mask_clasificados = puntos_gdf['Localizacion'].notna()
-    puntos_para_comunas = puntos_gdf[~mask_clasificados]
+    puntos_gdf['Localizacion'] = puntos_gdf['Localizacion'].fillna('Otro')
 
-    if not puntos_para_comunas.empty:
-        puntos_en_comunas = gpd.sjoin(puntos_para_comunas, comunas_gdf, how="inner", predicate='within')
-        if not puntos_en_comunas.empty:
-            possible_cols = ['comunas', 'COMUNAS', 'comuna', 'COMUNA', 'NAM', 'ID', 'OBJETO']
-            comuna_col = next((c for c in possible_cols if c in puntos_en_comunas.columns), None)
-            if comuna_col:
-                puntos_gdf.loc[puntos_en_comunas.index, 'Localizacion'] = pd.to_numeric(puntos_en_comunas[comuna_col], errors='coerce')
-
-    # --- Override por flash declarado (solo registros con el campo completo) ---
+    # --- Override por flash declarado (buffer 100m, CRS métrico) ---
     if declared_flash is not None and declared_flash.notna().any():
         puntos_metric = puntos_gdf.to_crs(CRS_METRICO)
-        palermo_metric = palermo_gdf.to_crs(CRS_METRICO)
-        comunas_metric = comunas_gdf.to_crs(CRS_METRICO)
-
-        possible_cols = ['comunas', 'COMUNAS', 'comuna', 'COMUNA', 'NAM', 'ID', 'OBJETO']
-        comuna_col = next((c for c in possible_cols if c in comunas_metric.columns), None)
+        zonas_metric = {z: gdf.to_crs(CRS_METRICO) for z, gdf in zonas_dict.items()}
 
         overrides = 0
         for idx, flash_val in declared_flash.items():
@@ -213,26 +241,21 @@ def clasificar_localizacion(puntos_gdf, palermo_gdf, comunas_gdf, declared_flash
             if flash_str not in FLASH_TO_LOCALIZACION:
                 continue  # '4' (Otro) o nulo → mantener GPS
 
-            declared_loc = FLASH_TO_LOCALIZACION[flash_str]
-            gps_loc = puntos_gdf.loc[idx, 'Localizacion']
+            declared_zone = FLASH_TO_LOCALIZACION[flash_str]
+            gps_zone = puntos_gdf.loc[idx, 'Localizacion']
 
-            if gps_loc == declared_loc:
-                continue  # GPS y declaración coinciden, nada que hacer
+            if gps_zone == declared_zone:
+                continue  # coinciden, nada que hacer
 
-            # Obtener polígono de la zona declarada en CRS métrico
-            if declared_loc == 14.5:
-                zone_polygon = palermo_metric.union_all() if hasattr(palermo_metric, 'union_all') else palermo_metric.unary_union
-            elif comuna_col:
-                zone_rows = comunas_metric[pd.to_numeric(comunas_metric[comuna_col], errors='coerce') == declared_loc]
-                if zone_rows.empty:
-                    continue
-                zone_polygon = zone_rows.union_all() if hasattr(zone_rows, 'union_all') else zone_rows.unary_union
-            else:
+            if declared_zone not in zonas_metric:
                 continue
 
-            # Si el punto cae dentro del buffer de 100m del borde → override
+            zone_polygon = zonas_metric[declared_zone].union_all() \
+                if hasattr(zonas_metric[declared_zone], 'union_all') \
+                else zonas_metric[declared_zone].unary_union
+
             if zone_polygon.buffer(100).contains(puntos_metric.loc[idx, 'geometry']):
-                puntos_gdf.loc[idx, 'Localizacion'] = declared_loc
+                puntos_gdf.loc[idx, 'Localizacion'] = declared_zone
                 overrides += 1
 
         if overrides:
@@ -334,24 +357,17 @@ def main():
     df_nuevos = procesar_coords_y_fechas(df_nuevos)
     df_nuevos.dropna(subset=['latitude', 'longitude'], inplace=True)
     
-    # Cargar capas Geo
+    # Cargar capas Geo (nuevo GeoJSON unificado)
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    ruta_kmz = next((os.path.join(root, f) for root, _, files in os.walk(BASE_DIR) for f in files if 'palermo' in f.lower() and f.endswith('.kmz')), None)
-    ruta_shp = next((os.path.join(root, f) for root, _, files in os.walk(BASE_DIR) for f in files if f == 'comunas.shp'), None)
-    
-    if ruta_kmz and ruta_shp:
-        with zipfile.ZipFile(ruta_kmz, 'r') as kmz:
-            kml_name = [f for f in kmz.namelist() if f.endswith('.kml')][0]
-            with kmz.open(kml_name) as kml:
-                palermo_gdf = gpd.read_file(kml)
-        comunas_gdf = gpd.read_file(ruta_shp)
-        
+    ruta_geojson = next((os.path.join(root, f) for root, _, files in os.walk(BASE_DIR) for f in files if f.lower() == 'mapas flash.geojson'), None)
+
+    if ruta_geojson:
+        zonas_dict = cargar_zonas_flash(ruta_geojson)
         puntos_gdf = gpd.GeoDataFrame(df_nuevos, geometry=gpd.points_from_xy(df_nuevos.longitude, df_nuevos.latitude), crs="EPSG:4326")
-        # Pasar flash declarado si existe (campo nuevo desde 2026-03-17, NULL en histórico)
         declared_flash = df_nuevos.get('geo_ref/relevamiento_flash')
-        df_nuevos['Localizacion'] = clasificar_localizacion(puntos_gdf, palermo_gdf, comunas_gdf, declared_flash)
+        df_nuevos['Localizacion'] = clasificar_localizacion(puntos_gdf, zonas_dict, declared_flash)
     else:
-        print("⚠️ No se encontraron archivos geográficos. Saltando clasificación.")
+        print("⚠️ No se encontró 'Mapas flash.geojson'. Saltando clasificación.")
 
     # 5. Formateo y Subida
     df_nuevos['hora_start'] = df_nuevos['start'].dt.strftime('%H:%M:%S')

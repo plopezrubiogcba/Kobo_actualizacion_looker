@@ -10,14 +10,14 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       FROM kobo_flash_consolidado
       WHERE "fecha_reporte" IS NOT NULL
     `
-    const comunasRaw = await sql`
+    const zonasRaw = await sql`
       SELECT DISTINCT "Localizacion"
       FROM kobo_flash_consolidado
       WHERE "Localizacion" IS NOT NULL
       ORDER BY 1
     `
-    const comunas = comunasRaw.map((r: { Localizacion: number }) => r.Localizacion)
-    res.status(200).json({ date_min: range.date_min, date_max: range.date_max, comunas })
+    const zonas = zonasRaw.map((r: { Localizacion: string }) => r.Localizacion)
+    res.status(200).json({ date_min: range.date_min, date_max: range.date_max, zonas })
   } catch (e) {
     res.status(500).json({ error: String(e) })
   }

@@ -8,30 +8,58 @@ import type { FlashPoint } from './types'
 
 const CABA_CENTER: [number, number] = [-34.615, -58.443]
 
+const ZONA_COLOR: Record<string, string> = {
+  C2:   '#f97316',
+  C14:  '#3b82f6',
+  C13:  '#22c55e',
+  C12:  '#a855f7',
+  C1A:  '#eab308',
+  C6:   '#ec4899',
+  Otro: '#94a3b8',
+}
+
+const ZONA_LABEL: Record<string, string> = {
+  C2:   'C2 — Recoleta',
+  C14:  'C14 — Palermo',
+  C13:  'C13 — Belgrano',
+  C12:  'C12',
+  C1A:  'C1A — Retiro/Recoleta N',
+  C6:   'C6 — Caballito',
+  Otro: 'Sin zona',
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const zoneStyle = (feature: any) => {
+  const zona = feature?.properties?.zona ?? ''
+  const color = ZONA_COLOR[zona] ?? '#475569'
+  return { color, weight: 1.5, fillColor: color, fillOpacity: 0.08 }
+}
+
 export const FlashMapa = () => {
-  const { desde, hasta, comunas, turnos } = useFlashStore()
+  const { desde, hasta, zonas, turnos } = useFlashStore()
   const [points, setPoints]     = useState<FlashPoint[]>([])
   const [loading, setLoading]   = useState(false)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [geojson, setGeojson]   = useState<any>(null)
 
   useEffect(() => {
-    fetch('/data/comunas.geojson')
+    fetch('/data/mapa_flash.geojson')
       .then(r => r.ok ? r.json() : null)
       .then(g => g && setGeojson(g))
       .catch(() => null)
   }, [])
 
   useEffect(() => {
-    if (!desde || !hasta || comunas.size === 0 || turnos.size === 0) return
+    if (!desde || !hasta || zonas.size === 0 || turnos.size === 0) return
     setLoading(true)
-    fetchFlashPoints({ desde, hasta, comunas: [...comunas], turnos: [...turnos] })
+    fetchFlashPoints({ desde, hasta, zonas: [...zonas], turnos: [...turnos] })
       .then(data => { setPoints(data); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [desde, hasta, comunas, turnos])
+  }, [desde, hasta, zonas, turnos])
 
   const maxPersonas = Math.max(1, ...points.map(p => p.personas))
   const radius = (p: FlashPoint) => 4 + (p.personas / maxPersonas) * 16
+  const pointColor = (p: FlashPoint) => ZONA_COLOR[p.localizacion ?? ''] ?? '#f97316'
 
   return (
     <div className="flex flex-col flex-1">
@@ -53,7 +81,7 @@ export const FlashMapa = () => {
           {geojson && (
             <GeoJSON
               data={geojson}
-              style={{ color: '#475569', weight: 1, fillOpacity: 0.05 }}
+              style={zoneStyle}
             />
           )}
           {points.map(p => (
@@ -61,14 +89,14 @@ export const FlashMapa = () => {
               key={p.id}
               center={[p.lat, p.lon]}
               radius={radius(p)}
-              pathOptions={{ color: '#f97316', fillColor: '#f97316', fillOpacity: 0.6, weight: 1 }}
+              pathOptions={{ color: pointColor(p), fillColor: pointColor(p), fillOpacity: 0.7, weight: 1 }}
             >
               <Popup>
                 <div className="text-xs">
                   <div><b>Personas:</b> {p.personas}</div>
                   <div><b>Turno:</b> {p.turno}</div>
                   <div><b>Fecha:</b> {p.fecha}</div>
-                  {p.localizacion && <div><b>Localización:</b> {p.localizacion === 14.5 ? 'Palermo Norte' : `Comuna ${p.localizacion}`}</div>}
+                  <div><b>Zona:</b> {p.localizacion ? (ZONA_LABEL[p.localizacion] ?? p.localizacion) : '—'}</div>
                 </div>
               </Popup>
             </CircleMarker>

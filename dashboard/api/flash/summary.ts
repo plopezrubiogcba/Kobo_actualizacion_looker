@@ -1,15 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { sql, parseCSVNum, parseCSV, isISODate } from './_lib.js'
+import { sql, parseCSV, isISODate } from './_lib.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { desde, hasta, gran, comunas: comunasQ, turnos: turnosQ, topN: topNQ } = req.query as Record<string, string>
+  const { desde, hasta, gran, zonas: zonasQ, turnos: turnosQ, topN: topNQ } = req.query as Record<string, string>
 
   if (!isISODate(desde) || !isISODate(hasta)) {
     return res.status(400).json({ error: 'desde/hasta required (YYYY-MM-DD)' })
   }
 
   const granularity = ['day', 'week', 'month'].includes(gran) ? gran : 'week'
-  const comunas     = parseCSVNum(comunasQ)
+  const zonas       = parseCSV(zonasQ)
   const turnos      = parseCSV(turnosQ)
   const topN        = Math.min(Math.max(1, Number(topNQ) || 8), 100)
 
@@ -26,7 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           FROM kobo_flash_consolidado
           WHERE
             "fecha_reporte" BETWEEN ${desde}::date AND ${hasta}::date
-            AND (${comunas.length} = 0 OR "Localizacion" IS NULL OR "Localizacion" = ANY(${comunas}))
+            AND (${zonas.length} = 0 OR "Localizacion" IS NULL OR "Localizacion" = ANY(${zonas}))
             AND (${turnos.length} = 0 OR "Turno" IS NULL OR "Turno" = ANY(${turnos}))
             AND ("Cantidad de personas en situación de calle observadas" IS NULL OR "Cantidad de personas en situación de calle observadas" <= 11)
           GROUP BY 1
@@ -42,7 +42,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         FROM kobo_flash_consolidado
         WHERE
           "fecha_reporte" BETWEEN ${desde}::date AND ${hasta}::date
-          AND (${comunas.length} = 0 OR "Localizacion" IS NULL OR "Localizacion" = ANY(${comunas}))
+          AND (${zonas.length} = 0 OR "Localizacion" IS NULL OR "Localizacion" = ANY(${zonas}))
           AND (${turnos.length} = 0 OR "Turno" IS NULL OR "Turno" = ANY(${turnos}))
           AND ("Cantidad de personas en situación de calle observadas" IS NULL OR "Cantidad de personas en situación de calle observadas" <= 11)
       `,

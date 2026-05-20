@@ -21,7 +21,7 @@ export const fetchFlashSummary = async (opts: {
   desde: string
   hasta: string
   granularity: Granularity
-  comunas: number[]
+  zonas: string[]
   turnos: Turno[]
   topN: number
 }): Promise<FlashSummary> => {
@@ -29,7 +29,7 @@ export const fetchFlashSummary = async (opts: {
     desde: opts.desde,
     hasta: opts.hasta,
     gran:  opts.granularity,
-    comunas: opts.comunas,
+    zonas:  opts.zonas,
     turnos:  opts.turnos,
     topN:    opts.topN,
   })
@@ -41,13 +41,13 @@ export const fetchFlashSummary = async (opts: {
 export const fetchFlashPoints = async (opts: {
   desde: string
   hasta: string
-  comunas: number[]
+  zonas: string[]
   turnos: Turno[]
 }): Promise<FlashPoint[]> => {
   const qs = buildParams({
     desde: opts.desde,
     hasta: opts.hasta,
-    comunas: opts.comunas,
+    zonas:  opts.zonas,
     turnos:  opts.turnos,
   })
   const res = await fetch(`/api/flash/points?${qs}`)

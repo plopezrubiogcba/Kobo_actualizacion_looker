@@ -1,15 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { sql, parseCSVNum, parseCSV, isISODate } from './_lib.js'
+import { sql, parseCSV, isISODate } from './_lib.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { desde, hasta, comunas: comunasQ, turnos: turnosQ } = req.query as Record<string, string>
+  const { desde, hasta, zonas: zonasQ, turnos: turnosQ } = req.query as Record<string, string>
 
   if (!isISODate(desde) || !isISODate(hasta)) {
     return res.status(400).json({ error: 'desde/hasta required (YYYY-MM-DD)' })
   }
 
-  const comunas = parseCSVNum(comunasQ)
-  const turnos  = parseCSV(turnosQ)
+  const zonas  = parseCSV(zonasQ)
+  const turnos = parseCSV(turnosQ)
 
   try {
     const rows = await sql`
@@ -25,7 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       WHERE
         latitude IS NOT NULL AND longitude IS NOT NULL
         AND "fecha_reporte" BETWEEN ${desde}::date AND ${hasta}::date
-        AND (${comunas.length} = 0 OR "Localizacion" IS NULL OR "Localizacion" = ANY(${comunas}))
+        AND (${zonas.length} = 0 OR "Localizacion" IS NULL OR "Localizacion" = ANY(${zonas}))
         AND (${turnos.length} = 0 OR "Turno" IS NULL OR "Turno" = ANY(${turnos}))
         AND ("Cantidad de personas en situación de calle observadas" IS NULL OR "Cantidad de personas en situación de calle observadas" <= 11)
       LIMIT 5000

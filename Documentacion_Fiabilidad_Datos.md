@@ -30,29 +30,44 @@ Anteriormente, los datos podían sufrir un desfasaje de un día debido a:
 
 ## 4. Clasificación Geográfica
 
+### Fuente de datos
+El sistema usa **`Mapas flash.geojson`** como fuente única de zonas operativas Flash. Reemplaza los archivos `Palermo_Norte.kmz` y `comunas.shp` que se usaban anteriormente.
+
+### Zonas Flash reconocidas
+
+| Código | Nombre | Prioridad |
+|---|---|---|
+| `C2` | Recoleta | 1 (más alta) |
+| `C14` | Palermo | 2 |
+| `C13` | Belgrano-Núñez | 3 |
+| `C12` | Comuna 12 | 4 |
+| `C1A` | Retiro / Recoleta Norte | 5 |
+| `C6` | Caballito | 6 |
+| `Otro` | Fuera de zona Flash | — |
+
+La capa **"Zona de Frontera"** del GeoJSON se ignora; no clasifica ningún punto.
+
 ### Lógica base (GPS)
-El sistema clasifica cada punto registrado contra dos capas geográficas en orden de prioridad:
-
-1. **Palermo Norte** (polígono KMZ priorizado): si el punto cae dentro → `Localizacion = 14.5`
-2. **Comunas de CABA** (shapefile): si no es Palermo Norte → `Localizacion = número de comuna (1-15)`
-
-El valor `14.5` indica el polígono especial de Palermo Norte, que es una zona priorizada **dentro** de la comuna 14 donde se concentra el operativo Flash Palermo.
+El sistema clasifica cada punto contra los polígonos del GeoJSON en **orden estricto de prioridad**. Si un punto cae dentro de más de un polígono (solapamiento), gana el de mayor prioridad (`C2 > C14 > C13 > C12 > C1A > C6`). Puntos que no caen en ninguna zona quedan como `"Otro"`.
 
 ### Override por Flash Declarado (desde 2026-03-17)
-A partir del 17 de marzo de 2026, el formulario Kobo incorpora la pregunta **"Nombre del relevamiento"** (`tipo_flash`), donde el operador indica en qué flash está trabajando antes de georreferenciar el punto.
+A partir del 17 de marzo de 2026, el formulario Kobo incorpora la pregunta **"Nombre del relevamiento"** (`tipo_flash`), donde el operador indica en qué flash está trabajando.
 
-**¿Por qué es necesario?** El GPS tiene un margen de error de 5-30 metros. En zonas de borde entre comunas, un operador parado en la vereda correcta puede quedar registrado en la comuna equivocada por pocos metros.
+**Mapeo `tipo_flash` → zona:**
+
+| `tipo_flash` (código Kobo) | Label en formulario | Zona asignada |
+|---|---|---|
+| `1` | Comuna 2 (Recoleta) | `C2` |
+| `2` | Comuna 14 (Palermo) | `C14` |
+| `3` | Comuna 13 (Belgrano-Núñez) | `C13` |
+| `4` | Otro | Sin override (solo GPS) |
+| `5` | Comuna 12 | `C12` |
+| `6` | Comuna 1 | `C1A` |
+| `7` | Comuna 6 (Caballito) | `C6` |
 
 **Lógica de override (100 metros):**
 
-| Flash declarado | `tipo_flash` (código Kobo) | Localizacion asignada |
-|---|---|---|
-| Flash Recoleta | `1` | `2` (Comuna 2) |
-| Flash Palermo Norte | `2` | `14.5` (polígono priorizado) |
-| Flash Belgrano | `3` | `13` (Comuna 13) |
-| Otro | `4` | Solo GPS, sin override |
-
-**Regla**: si el GPS clasifica el punto en una zona distinta a la declarada, el sistema mide la distancia en metros reales (CRS métrico EPSG:22185, Gauss-Kruger Faja 5) desde el punto hasta el borde de la zona declarada:
+Si el GPS clasifica el punto en una zona distinta a la declarada, el sistema mide la distancia en metros reales (CRS EPSG:22185, Gauss-Kruger Faja 5) desde el punto hasta el borde de la zona declarada:
 - **Distancia < 100m** → se confía en la declaración del operador y se reasigna.
 - **Distancia ≥ 100m** → se mantiene el resultado del GPS (probable error de carga).
 
@@ -64,7 +79,7 @@ A partir del 17 de marzo de 2026, el formulario Kobo incorpora la pregunta **"No
 
 1. **Sin duplicados**: El campo `_uuid` de Kobo actúa como guardia. El sistema verifica siempre que un UUID no exista en Neon antes de insertarlo.
 2. **Carga incremental**: En cada ejecución se detecta el `MAX(_submission_time)` existente en Neon y solo se bajan registros posteriores a ese momento desde Kobo.
-3. **Histórico alineado**: Se procesaron los registros históricos alineándolos a la lógica actual, por lo que el pasado es 100% comparable con el presente.
+3. **Histórico alineado**: Todos los registros históricos fueron reclasificados con la nueva lógica de zonas Flash para garantizar comparabilidad total.
 
 ---
 
@@ -77,8 +92,8 @@ A partir del 17 de marzo de 2026, el formulario Kobo incorpora la pregunta **"No
 | `fecha_reporte` | Fecha del operativo (con corrección de madrugada TN) |
 | `inicio_semana_lunes` | Lunes de la semana a la que pertenece el registro |
 | `Turno` | TM / TO / TT / TN según hora del `start` |
-| `Localizacion` | Número de comuna o 14.5 para Palermo Norte |
-| `tipo_flash` | Flash declarado por el operador (1=Recoleta, 2=Palermo, 3=Belgrano, 4=Otro). NULL en histórico. |
+| `Localizacion` | Código de zona Flash: `C2`, `C14`, `C13`, `C12`, `C1A`, `C6` o `"Otro"` |
+| `tipo_flash` | Flash declarado por operador (1=C2, 2=C14, 3=C13, 4=Otro, 5=C12, 6=C1A, 7=C6). NULL en histórico. |
 | `tipo_flash_otro` | Texto libre cuando `tipo_flash = 4`. NULL en histórico. |
 | `_uuid` | Identificador único de Kobo (garantiza unicidad) |
 | `_submission_time` | Momento en que se envió el formulario a Kobo |
@@ -100,7 +115,7 @@ Se detectaron registros con valores imposibles en la columna `Cantidad de person
 | Gráfico diario | `fecha_reporte` |
 | Gráfico semanal | `inicio_semana_lunes` |
 | Conteo de puntos (sin duplicados) | `COUNT(_uuid)` |
-| Filtrar por zona | `Localizacion` (14.5 = Palermo Norte, resto = número de comuna) |
+| Filtrar por zona Flash | `Localizacion` (`C2`, `C14`, `C13`, `C12`, `C1A`, `C6`, `"Otro"`) |
 | Identificar tipo de operativo | `tipo_flash` (disponible desde 17/03/2026) |
 | Sumar personas (sin outliers) | `SUM` con filtro `<= 100` |
 
@@ -112,4 +127,4 @@ El proceso corre automáticamente vía **GitHub Actions** de lunes a viernes cad
 
 ---
 
-**Conclusión**: El sistema es una tubería directa y limpia desde Kobo hasta Looker. La clasificación geográfica combina GPS con la intención declarada del operador para minimizar errores de borde. Cualquier cambio en el tablero responde a cargas reales de los equipos en calle, no a errores del sistema.
+**Conclusión**: El sistema es una tubería directa y limpia desde Kobo hasta Looker. La clasificación geográfica usa el GeoJSON `Mapas flash.geojson` como fuente única de verdad, combinada con la intención declarada del operador (override 100m) para minimizar errores de borde. Cada punto tiene exactamente una zona asignada. Cualquier cambio en el tablero responde a cargas reales de los equipos en calle, no a errores del sistema.

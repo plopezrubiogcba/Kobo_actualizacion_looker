@@ -10,7 +10,7 @@ import type { FlashSummary } from './types'
 const EMPTY: FlashSummary = { rows: [], totals: { puntos: 0, personas: 0 } }
 
 export const FlashPage = () => {
-  const { desde, hasta, granularity, comunas, turnos, topN, initFromMeta } = useFlashStore()
+  const { desde, hasta, granularity, zonas, turnos, topN, initFromMeta } = useFlashStore()
   const [data, setData] = useState<FlashSummary>(EMPTY)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -19,24 +19,24 @@ export const FlashPage = () => {
   useEffect(() => {
     fetchFlashMeta()
       .then(meta => {
-        initFromMeta(meta.date_min, meta.date_max, meta.comunas)
+        initFromMeta(meta.date_min, meta.date_max, meta.zonas)
         setMetaLoaded(true)
       })
       .catch(e => setError(String(e)))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!metaLoaded || !desde || !hasta || comunas.size === 0 || turnos.size === 0) return
+    if (!metaLoaded || !desde || !hasta || zonas.size === 0 || turnos.size === 0) return
     setLoading(true)
     fetchFlashSummary({
       desde, hasta, granularity,
-      comunas: [...comunas],
+      zonas: [...zonas],
       turnos: [...turnos],
       topN,
     })
       .then(d => { setData(d); setLoading(false) })
       .catch(e => { setError(String(e)); setLoading(false) })
-  }, [metaLoaded, desde, hasta, granularity, comunas, turnos, topN])
+  }, [metaLoaded, desde, hasta, granularity, zonas, turnos, topN])
 
   return (
     <div className="flex flex-col flex-1">

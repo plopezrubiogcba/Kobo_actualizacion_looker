@@ -10,7 +10,7 @@ const readUrl = () => {
     desde:       p.get('desde')       ?? undefined,
     hasta:       p.get('hasta')       ?? undefined,
     granularity: (p.get('gran')       ?? undefined) as Granularity | undefined,
-    comunas:     p.get('comunas')     ? new Set(p.get('comunas')!.split(',').map(Number)) : undefined,
+    zonas:       p.get('zonas')       ? new Set(p.get('zonas')!.split(',')) : undefined,
     turnos:      p.get('turnos')      ? new Set(p.get('turnos')!.split(',') as Turno[])   : undefined,
     topN:        p.get('topN')        ? Number(p.get('topN'))                               : undefined,
   }
@@ -22,7 +22,7 @@ const writeUrl = (s: FlashFilters) => {
   if (s.desde)       p.set('desde', s.desde)
   if (s.hasta)       p.set('hasta', s.hasta)
   if (s.granularity !== 'week') p.set('gran', s.granularity)
-  if (s.comunas.size > 0) p.set('comunas', [...s.comunas].join(','))
+  if (s.zonas.size > 0) p.set('zonas', [...s.zonas].join(','))
   if (s.turnos.size < 4)  p.set('turnos',  [...s.turnos].join(','))
   if (s.topN !== 8) p.set('topN', String(s.topN))
   const qs = p.toString()
@@ -33,7 +33,7 @@ export interface FlashFilters {
   desde:       string
   hasta:       string
   granularity: Granularity
-  comunas:     Set<number>
+  zonas:       Set<string>
   turnos:      Set<Turno>
   topN:        number
 }
@@ -42,11 +42,11 @@ interface FlashStore extends FlashFilters {
   setDesde:        (v: string)          => void
   setHasta:        (v: string)          => void
   setGranularity:  (v: Granularity)     => void
-  setComunas:      (v: Set<number>)     => void
+  setZonas:        (v: Set<string>)     => void
   setTurnos:       (v: Set<Turno>)      => void
   setTopN:         (v: number)          => void
-  initFromMeta:    (min: string, max: string, comunasList: number[]) => void
-  allComunas:      number[]
+  initFromMeta:    (min: string, max: string, zonasList: string[]) => void
+  allZonas:        string[]
 }
 
 const fromUrl = readUrl()
@@ -55,25 +55,25 @@ export const useFlashStore = create<FlashStore>((set, get) => ({
   desde:       fromUrl.desde       ?? '',
   hasta:       fromUrl.hasta       ?? '',
   granularity: fromUrl.granularity ?? 'week',
-  comunas:     fromUrl.comunas     ?? new Set<number>(),
+  zonas:       fromUrl.zonas       ?? new Set<string>(),
   turnos:      fromUrl.turnos      ?? new Set(ALL_TURNOS),
   topN:        fromUrl.topN        ?? 8,
-  allComunas:  [],
+  allZonas:    [],
 
   setDesde:       (v) => { const s = { ...get(), desde: v };        writeUrl(s); set({ desde: v }) },
   setHasta:       (v) => { const s = { ...get(), hasta: v };        writeUrl(s); set({ hasta: v }) },
   setGranularity: (v) => { const s = { ...get(), granularity: v };  writeUrl(s); set({ granularity: v }) },
-  setComunas:     (v) => { const s = { ...get(), comunas: v };      writeUrl(s); set({ comunas: v }) },
+  setZonas:       (v) => { const s = { ...get(), zonas: v };        writeUrl(s); set({ zonas: v }) },
   setTurnos:      (v) => { const s = { ...get(), turnos: v };       writeUrl(s); set({ turnos: v }) },
   setTopN:        (v) => { const s = { ...get(), topN: v };         writeUrl(s); set({ topN: v }) },
 
-  initFromMeta: (min, max, comunasList) => {
+  initFromMeta: (min, max, zonasList) => {
     const cur = get()
     const nextDesde = cur.desde || min
     const nextHasta = cur.hasta || max
-    const nextComunas = cur.comunas.size > 0 ? cur.comunas : new Set(comunasList)
-    const next = { ...cur, desde: nextDesde, hasta: nextHasta, comunas: nextComunas }
+    const nextZonas = cur.zonas.size > 0 ? cur.zonas : new Set(zonasList)
+    const next = { ...cur, desde: nextDesde, hasta: nextHasta, zonas: nextZonas }
     writeUrl(next)
-    set({ desde: nextDesde, hasta: nextHasta, comunas: nextComunas, allComunas: comunasList })
+    set({ desde: nextDesde, hasta: nextHasta, zonas: nextZonas, allZonas: zonasList })
   },
 }))
