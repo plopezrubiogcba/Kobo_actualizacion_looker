@@ -5,16 +5,17 @@ const TURNOS: Turno[] = ['TM', 'TT', 'TN']
 const TURNO_LABEL: Record<Turno, string> = { TM: 'Madrugada', TT: 'Tarde', TN: 'Noche' }
 
 const ZONA_LABEL: Record<string, string> = {
-  C2:   'C2 — Recoleta',
-  C14:  'C14 — Palermo',
-  C13:  'C13 — Belgrano',
-  C12:  'C12',
-  C1A:  'C1A — Retiro/Recoleta N',
-  C6:   'C6 — Caballito',
-  Otro: 'Sin zona',
+  Frontera: 'Zona de Frontera',
+  C2:       'C2 — Recoleta',
+  C14:      'C14 — Palermo',
+  C13:      'C13 — Belgrano',
+  C12:      'C12',
+  C1A:      'C1A — Retiro/Recoleta N',
+  C6:       'C6 — Caballito',
+  Otro:     'Sin zona',
 }
 
-const ZONE_ORDER = ['C2', 'C14', 'C13', 'C12', 'C1A', 'C6', 'Otro']
+const ZONE_ORDER = ['Frontera', 'C2', 'C14', 'C13', 'C12', 'C1A', 'C6', 'Otro']
 
 export const FlashFilters = () => {
   const {

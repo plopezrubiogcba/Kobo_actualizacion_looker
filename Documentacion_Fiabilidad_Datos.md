@@ -37,18 +37,17 @@ El sistema usa **`Mapas flash.geojson`** como fuente única de zonas operativas 
 
 | Código | Nombre | Prioridad |
 |---|---|---|
-| `C2` | Recoleta | 1 (más alta) |
-| `C14` | Palermo | 2 |
-| `C13` | Belgrano-Núñez | 3 |
-| `C12` | Comuna 12 | 4 |
-| `C1A` | Retiro / Recoleta Norte | 5 |
-| `C6` | Caballito | 6 |
+| `Frontera` | Zona de Frontera | 1 (máxima) |
+| `C2` | Recoleta | 2 |
+| `C14` | Palermo | 3 |
+| `C13` | Belgrano-Núñez | 4 |
+| `C12` | Comuna 12 | 5 |
+| `C1A` | Retiro / Recoleta Norte | 6 |
+| `C6` | Caballito | 7 |
 | `Otro` | Fuera de zona Flash | — |
 
-La capa **"Zona de Frontera"** del GeoJSON se ignora; no clasifica ningún punto.
-
 ### Lógica base (GPS)
-El sistema clasifica cada punto contra los polígonos del GeoJSON en **orden estricto de prioridad**. Si un punto cae dentro de más de un polígono (solapamiento), gana el de mayor prioridad (`C2 > C14 > C13 > C12 > C1A > C6`). Puntos que no caen en ninguna zona quedan como `"Otro"`.
+El sistema clasifica cada punto contra los polígonos del GeoJSON en **orden estricto de prioridad**. Si un punto cae dentro de más de un polígono (solapamiento), gana el de mayor prioridad (`Frontera > C2 > C14 > C13 > C12 > C1A > C6`). Puntos que no caen en ninguna zona quedan como `"Otro"`.
 
 ### Override por Flash Declarado (desde 2026-03-17)
 A partir del 17 de marzo de 2026, el formulario Kobo incorpora la pregunta **"Nombre del relevamiento"** (`tipo_flash`), donde el operador indica en qué flash está trabajando.
@@ -70,6 +69,8 @@ A partir del 17 de marzo de 2026, el formulario Kobo incorpora la pregunta **"No
 Si el GPS clasifica el punto en una zona distinta a la declarada, el sistema mide la distancia en metros reales (CRS EPSG:22185, Gauss-Kruger Faja 5) desde el punto hasta el borde de la zona declarada:
 - **Distancia < 100m** → se confía en la declaración del operador y se reasigna.
 - **Distancia ≥ 100m** → se mantiene el resultado del GPS (probable error de carga).
+
+**Caso especial Frontera**: si el GPS clasifica el punto en `Frontera` pero el operador declara C2/C14/etc, el override 100m aplica igual: si el punto está a menos de 100m del borde de la zona declarada, se reasigna. Frontera es prioridad máxima en GPS, pero la declaración explícita del operador puede superarla.
 
 **Histórico**: los registros anteriores al 17/03/2026 tienen `tipo_flash = NULL` y se clasifican únicamente por GPS. Esto es correcto y no afecta la comparabilidad histórica.
 

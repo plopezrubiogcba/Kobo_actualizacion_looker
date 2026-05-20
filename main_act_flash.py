@@ -48,17 +48,17 @@ FLASH_TO_LOCALIZACION = {
 }
 
 # Prioridad de asignación cuando un punto cae en más de un polígono
-ZONE_PRIORITY = ['C2', 'C14', 'C13', 'C12', 'C1A', 'C6']
+ZONE_PRIORITY = ['Frontera', 'C2', 'C14', 'C13', 'C12', 'C1A', 'C6']
 
-# Layer name (em dash) en el GeoJSON → código de zona
+# Layer name en el GeoJSON → código de zona
 LAYER_TO_ZONE = {
+    'Zonas Flash — Zona de Frontera': 'Frontera',
     'Zonas Flash — Poligonos C2':     'C2',
     'Zonas Flash — Comuna 14':        'C14',
     'Zonas Flash — Comuna 13':        'C13',
     'Zonas Flash — 12':               'C12',
     'Zonas Flash — 1 A':              'C1A',
     'Zonas Flash — Zona de Control':  'C6',
-    # 'Zona de Frontera' ignorada
 }
 
 CRS_METRICO = "EPSG:22185"  # Gauss-Kruger Faja 5, métrico para Buenos Aires

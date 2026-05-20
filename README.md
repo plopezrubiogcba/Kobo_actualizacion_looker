@@ -1,59 +1,100 @@
-Automatización ETL: KoboToolbox → Google Sheets
+# Kobo Flash — ETL + Dashboard
 
-Este proyecto ejecuta un flujo de trabajo ETL (Extract, Transform, Load) automatizado que sincroniza datos de encuestas de KoboToolbox con una hoja de Google Sheets para alimentar un dashboard de Looker.
+Pipeline automatizado **KoboToolbox → Neon Postgres → React/Vercel**.
+Procesa relevamientos del operativo Flash (situación de calle, CABA) y los expone en un dashboard interactivo.
 
-El script realiza enriquecimiento geoespacial de los datos, clasificando cada punto según su ubicación en las Comunas de CABA o el Anillo Digital.
+---
 
-----------------------------
-# Funcionalidades
+## Pipeline
 
-Extracción: Descarga la base completa desde la API v2 de KoboToolbox.
+```
+Kobo API v2
+    │
+    ▼
+main_act_flash.py          ← ETL principal
+    │  Descarga registros nuevos (incremental por _submission_time)
+    │  Clasifica geográficamente con Mapas flash.geojson
+    │  Inserta en Neon Postgres
+    ▼
+enriquecer_base.py         ← Post-proceso
+    │  Calcula fecha_reporte, inicio_semana_lunes, Turno
+    ▼
+Neon Postgres (kobo_flash_consolidado)
+    │
+    ▼
+dashboard/                 ← React + Vite + Leaflet
+    │  API serverless en Vercel (dashboard/api/flash/)
+    ▼
+Vercel (deploy automático en push a main)
+```
 
-Transformación Geoespacial:
+---
 
-Convierte coordenadas lat/lon.
+## Clasificación geográfica
 
-Cruce espacial (Point in Polygon): Determina si el punto cae en el "Anillo Digital" (KML) o en una Comuna específica (Shapefile).
+Fuente única: **`Mapas flash.geojson`** — 6 zonas operativas Flash.
 
-Asignación de Turnos según hora de registro.
+| Zona | Barrio |
+|------|--------|
+| C2   | Recoleta |
+| C14  | Palermo |
+| C13  | Belgrano-Núñez |
+| C12  | Comuna 12 |
+| C1A  | Retiro / Recoleta Norte |
+| C6   | Caballito |
 
-Carga Incremental: Verifica los _uuid existentes en Google Sheets y sube únicamente los registros nuevos (Append) para optimizar recursos y evitar duplicados.
+Prioridad en solapamientos: `C2 > C14 > C13 > C12 > C1A > C6`.
 
-Híbrido: Funciona tanto localmente como en la nube (GitHub Actions).
------------------------------
-# Estructura del Repositorio
-Los archivos geoespaciales deben estar en la raíz para que el script los detecte automáticamente.
-├── main.py                 # Script principal (Lógica ETL)
-├── requirements.txt        # Dependencias de Python
-├── Recoleta Nueva...kml    # Capa del Anillo Digital
-├── comunas.shp             # Geometría de Comunas (CABA)
-├── comunas.shx             # Índice del Shapefile (Vital)
-├── comunas.dbf             # Base de datos del Shapefile (Nombres de comunas)
-└── .github/workflows/      # Configuración de ejecución automática (Cron)
+Desde 2026-03-17 el formulario incluye `tipo_flash` (zona declarada por el operador). Si la declaración difiere del GPS y el punto está a menos de 100 m del borde, se usa la declaración.
 
+---
 
-----------------------------------------------
-# Configuración
-1. Dependencias
-Para correr localmente:
+## Estructura del repositorio
+
+```
+├── main_act_flash.py          # ETL principal
+├── enriquecer_base.py         # Post-proceso Neon
+├── reclasificar_historico.py  # Reclasificación histórica puntual
+├── Mapas flash.geojson        # Polígonos de zonas Flash
+├── Documentacion_Fiabilidad_Datos.md
+├── requirements.txt
+├── dashboard/
+│   ├── api/flash/             # Serverless functions (Vercel)
+│   ├── public/data/           # GeoJSON para el mapa
+│   └── src/modules/flash/     # React — página, filtros, mapa
+└── .github/workflows/
+    └── kobo_update.yml        # GitHub Actions (cron L-V cada hora)
+```
+
+---
+
+## Variables de entorno / Secrets
+
+| Variable | Dónde |
+|----------|-------|
+| `KOBO_TOKEN` | GitHub Secret + `.env` local |
+| `DATABASE_URL` | GitHub Secret + `.env` local |
+
+---
+
+## Correr localmente
+
+```bash
+# ETL Python
 pip install -r requirements.txt
+python main_act_flash.py
 
+# Dashboard (requiere .env en raíz con DATABASE_URL)
+cd dashboard
+npm install
+npm run dev        # http://localhost:5173
+```
 
+`npm run dev` levanta también las funciones `/api/*` vía plugin Vite (no hace falta `vercel dev`).
 
-2. Variables de Entorno (GitHub Secrets)
-Para que la automatización funcione en GitHub Actions, se deben configurar los siguientes Repository Secrets:
-Secreto,Descripción
-KOBO_TOKEN,Token de autenticación de la cuenta KoboToolbox.
-GOOGLE_CREDENTIALS_JSON,Contenido completo del JSON de la Service Account de Google Cloud.
+---
 
--------------------------------------
-# Automatización
-El flujo de trabajo está configurado en GitHub Actions para ejecutarse automáticamente (ej. cada hora) mediante un disparador CRON.
+## Automatización
 
-Levanta un entorno Ubuntu.
-
-Instala librerías espaciales (libspatialindex).
-
-Ejecuta main.py.
-
-Si detecta registros nuevos en Kobo que no están en el Sheet, los procesa y los anexa.
+GitHub Actions ejecuta el ETL automáticamente **lunes a viernes, cada hora en el minuto 15**.
+También se puede disparar manualmente desde la pestaña **Actions → Run workflow**.
