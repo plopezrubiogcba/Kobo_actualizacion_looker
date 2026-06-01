@@ -12,9 +12,9 @@ import os
 import geopandas as gpd
 from main_act_flash import ZONE_COL, ZONE_RENAME
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-KML_PATH  = os.path.join(BASE_DIR, "Zonas flash.kml")
-OUT_PATH  = os.path.join(BASE_DIR, "dashboard", "public", "data", "mapa_flash.geojson")
+PROJ_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KML_PATH  = os.path.join(PROJ_ROOT, "Zonas flash.kml")
+OUT_PATH  = os.path.join(PROJ_ROOT, "dashboard", "public", "data", "mapa_flash.geojson")
 
 def main():
     print(f"📂 Leyendo {KML_PATH} ...")

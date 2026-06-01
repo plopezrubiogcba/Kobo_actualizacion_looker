@@ -31,7 +31,7 @@ Anteriormente, los datos podían sufrir un desfasaje de un día debido a:
 ## 4. Clasificación Geográfica
 
 ### Fuente de datos
-El sistema usa **`Mapas flash.geojson`** como fuente única de zonas operativas Flash. Reemplaza los archivos `Palermo_Norte.kmz` y `comunas.shp` que se usaban anteriormente.
+El sistema usa **`Zonas flash.kml`** como fuente única de zonas operativas Flash. Reemplaza los archivos `Palermo_Norte.kmz` y `comunas.shp` que se usaban anteriormente.
 
 ### Zonas Flash reconocidas
 
@@ -128,4 +128,4 @@ El proceso corre automáticamente vía **GitHub Actions** de lunes a viernes cad
 
 ---
 
-**Conclusión**: El sistema es una tubería directa y limpia desde Kobo hasta Looker. La clasificación geográfica usa el GeoJSON `Mapas flash.geojson` como fuente única de verdad, combinada con la intención declarada del operador (override 100m) para minimizar errores de borde. Cada punto tiene exactamente una zona asignada. Cualquier cambio en el tablero responde a cargas reales de los equipos en calle, no a errores del sistema.
+**Conclusión**: El sistema es una tubería directa y limpia desde Kobo hasta Looker. La clasificación geográfica usa el KML `Zonas flash.kml` como fuente única de verdad, combinada con la intención declarada del operador (override 100m) para minimizar errores de borde. Cada punto tiene exactamente una zona asignada. Cualquier cambio en el tablero responde a cargas reales de los equipos en calle, no a errores del sistema.

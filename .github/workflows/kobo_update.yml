@@ -39,9 +39,9 @@ jobs:
           KOBO_TOKEN: ${{ secrets.KOBO_TOKEN }}
           GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python main_act_flash.py
+        run: python scripts/main_act_flash.py
 
       - name: Enriquecer fecha_reporte e inicio_semana_lunes
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python enriquecer_base.py
+        run: python scripts/enriquecer_base.py

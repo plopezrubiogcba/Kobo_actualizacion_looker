@@ -53,19 +53,21 @@ Desde 2026-03-17 el formulario incluye `tipo_flash` (zona declarada por el opera
 ## Estructura del repositorio
 
 ```
-├── main_act_flash.py           # ETL principal
-├── enriquecer_base.py          # Post-proceso Neon
-├── reclasificar_historico.py   # Reclasificación histórica puntual
-├── generar_overlay_dashboard.py# Regenera mapa_flash.geojson desde el KML
-├── Zonas flash.kml             # Polígonos de zonas Flash (fuente de verdad)
+├── scripts/
+│   ├── main_act_flash.py           # ETL principal
+│   ├── enriquecer_base.py          # Post-proceso Neon
+│   ├── reclasificar_historico.py   # Reclasificación histórica puntual
+│   └── generar_overlay_dashboard.py# Regenera mapa_flash.geojson desde el KML
+├── Zonas flash.kml                 # Polígonos de zonas Flash (fuente de verdad)
+├── actualizar.sh                   # Helper local: ETL + deploy Vercel
 ├── Documentacion_Fiabilidad_Datos.md
 ├── requirements.txt
 ├── dashboard/
-│   ├── api/flash/              # Serverless functions (Vercel)
-│   ├── public/data/            # GeoJSON para el mapa
-│   └── src/modules/flash/      # React — página, filtros, mapa
+│   ├── api/flash/                  # Serverless functions (Vercel)
+│   ├── public/data/                # GeoJSON para el mapa
+│   └── src/modules/flash/          # React — página, filtros, mapa
 └── .github/workflows/
-    └── kobo_update.yml         # GitHub Actions (cron L-V cada hora)
+    └── kobo_update.yml             # GitHub Actions (cron L-V cada hora)
 ```
 
 ---
@@ -84,7 +86,7 @@ Desde 2026-03-17 el formulario incluye `tipo_flash` (zona declarada por el opera
 ```bash
 # ETL Python
 pip install -r requirements.txt
-python main_act_flash.py
+python scripts/main_act_flash.py
 
 # Dashboard (requiere .env en raíz con DATABASE_URL)
 cd dashboard

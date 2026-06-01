@@ -5,11 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "=== 1/3 Actualizando base de datos ==="
 cd "$SCRIPT_DIR"
-python main_act_flash.py
+python scripts/main_act_flash.py
 
 echo ""
 echo "=== 2/3 Enriqueciendo registros ==="
-python enriquecer_base.py
+python scripts/enriquecer_base.py
 
 echo ""
 echo "=== 3/3 Deploy a Vercel ==="

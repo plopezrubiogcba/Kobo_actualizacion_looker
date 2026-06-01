@@ -15,8 +15,8 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-KML_PATH = os.path.join(BASE_DIR, "Zonas flash.kml")
+PROJ_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KML_PATH = os.path.join(PROJ_ROOT, "Zonas flash.kml")
 
 
 def main():

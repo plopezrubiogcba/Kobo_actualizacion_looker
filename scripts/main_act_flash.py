@@ -343,10 +343,10 @@ def main():
     df_nuevos.dropna(subset=['latitude', 'longitude'], inplace=True)
     
     # Cargar capas Geo (KML de zonas Flash)
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    ruta_kml = next((os.path.join(root, f) for root, _, files in os.walk(BASE_DIR) for f in files if f.lower() == 'zonas flash.kml'), None)
+    PROJ_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    ruta_kml = os.path.join(PROJ_ROOT, "Zonas flash.kml")
 
-    if ruta_kml:
+    if os.path.exists(ruta_kml):
         zonas_dict = cargar_zonas_flash(ruta_kml)
         puntos_gdf = gpd.GeoDataFrame(df_nuevos, geometry=gpd.points_from_xy(df_nuevos.longitude, df_nuevos.latitude), crs="EPSG:4326")
         declared_flash = df_nuevos.get('geo_ref/relevamiento_flash')
@@ -404,7 +404,7 @@ def main():
     try:
         # Intento de conexión simplificado
         possible_creds = ['kobo-looker-connect.json', 'credenciales.json']
-        ruta_creds = next((os.path.join(root, f) for root, _, files in os.walk(BASE_DIR) for f in files if f in possible_creds), None)
+        ruta_creds = next((os.path.join(root, f) for root, _, files in os.walk(PROJ_ROOT) for f in files if f in possible_creds), None)
         
         if ruta_creds:
             scope = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets', "https://www.googleapis.com/auth/drive.file"]
