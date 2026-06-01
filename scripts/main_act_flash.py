@@ -56,6 +56,7 @@ ZONE_COL = 'Mapa Flash'
 ZONE_RENAME = {'Control': 'C6'}
 
 CRS_METRICO = "EPSG:22185"  # Gauss-Kruger Faja 5, métrico para Buenos Aires
+SNAP_BORDE_M = 100          # Otro a <=100m de un borde → zona priorizada más cercana
 
 AR_TZ = 'America/Argentina/Buenos_Aires'
 
@@ -245,6 +246,25 @@ def clasificar_localizacion(puntos_gdf, zonas_dict, declared_flash=None):
 
         if overrides:
             print(f"  📍 Flash declarado: {overrides} punto(s) reasignado(s) por proximidad al borde (<100m)")
+
+    # --- Snap de borde: Otro a <=SNAP_BORDE_M → zona priorizada más cercana ---
+    otro_mask = puntos_gdf['Localizacion'] == 'Otro'
+    if otro_mask.any():
+        pm = puntos_gdf.to_crs(CRS_METRICO)
+        zonas_poly = {z: gdf.to_crs(CRS_METRICO).union_all()
+                      for z, gdf in zonas_dict.items() if z in ZONE_PRIORITY}
+        snapped = 0
+        for idx in puntos_gdf.index[otro_mask]:
+            g = pm.loc[idx, 'geometry']
+            z_near, poly_near = min(
+                zonas_poly.items(),
+                key=lambda kv: (g.distance(kv[1]), ZONE_PRIORITY.index(kv[0]))
+            )
+            if g.distance(poly_near) <= SNAP_BORDE_M:
+                puntos_gdf.loc[idx, 'Localizacion'] = z_near
+                snapped += 1
+        if snapped:
+            print(f"  🧲 Snap de borde: {snapped} Otro reasignado(s) a zona <={SNAP_BORDE_M}m")
 
     return puntos_gdf['Localizacion']
 
