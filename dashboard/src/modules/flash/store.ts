@@ -69,7 +69,10 @@ export const useFlashStore = create<FlashStore>((set, get) => ({
 
   initFromMeta: (min, max, zonasList) => {
     const cur = get()
-    const nextDesde = cur.desde || min
+    const d = new Date(max)
+    d.setDate(d.getDate() - 56) // 8 semanas por defecto
+    const defaultDesde = d.toISOString().slice(0, 10)
+    const nextDesde = cur.desde || (min > defaultDesde ? min : defaultDesde)
     const nextHasta = cur.hasta || max
     const nextZonas = cur.zonas.size > 0 ? cur.zonas : new Set(zonasList)
     const next = { ...cur, desde: nextDesde, hasta: nextHasta, zonas: nextZonas }
