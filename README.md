@@ -13,7 +13,7 @@ Kobo API v2
     ▼
 main_act_flash.py          ← ETL principal
     │  Descarga registros nuevos (incremental por _submission_time)
-    │  Clasifica geográficamente con Mapas flash.geojson
+    │  Clasifica geográficamente con Zonas flash.kml
     │  Inserta en Neon Postgres
     ▼
 enriquecer_base.py         ← Post-proceso
@@ -32,18 +32,19 @@ Vercel (deploy automático en push a main)
 
 ## Clasificación geográfica
 
-Fuente única: **`Mapas flash.geojson`** — 6 zonas operativas Flash.
+Fuente única: **`Zonas flash.kml`** — 7 zonas operativas Flash (vigente desde 2026-05-29).
 
-| Zona | Barrio |
-|------|--------|
-| C2   | Recoleta |
-| C14  | Palermo |
-| C13  | Belgrano-Núñez |
-| C12  | Comuna 12 |
-| C1A  | Retiro / Recoleta Norte |
-| C6   | Caballito |
+| Zona | Barrio | Nota KML |
+|------|--------|----------|
+| C2   | Recoleta | — |
+| C14  | Palermo | — |
+| C13  | Belgrano-Núñez | — |
+| C12  | Comuna 12 | — |
+| C1A  | Retiro / Recoleta Norte | — |
+| C6   | Caballito | campo `Mapa Flash` = `Control` → renombrado a `C6` al cargar |
+| Frontera | Zona de frontera | — |
 
-Prioridad en solapamientos: `C2 > C14 > C13 > C12 > C1A > C6`.
+Prioridad en solapamientos: `Frontera > C2 > C14 > C13 > C12 > C1A > C6`.
 
 Desde 2026-03-17 el formulario incluye `tipo_flash` (zona declarada por el operador). Si la declaración difiere del GPS y el punto está a menos de 100 m del borde, se usa la declaración.
 
@@ -52,18 +53,19 @@ Desde 2026-03-17 el formulario incluye `tipo_flash` (zona declarada por el opera
 ## Estructura del repositorio
 
 ```
-├── main_act_flash.py          # ETL principal
-├── enriquecer_base.py         # Post-proceso Neon
-├── reclasificar_historico.py  # Reclasificación histórica puntual
-├── Mapas flash.geojson        # Polígonos de zonas Flash
+├── main_act_flash.py           # ETL principal
+├── enriquecer_base.py          # Post-proceso Neon
+├── reclasificar_historico.py   # Reclasificación histórica puntual
+├── generar_overlay_dashboard.py# Regenera mapa_flash.geojson desde el KML
+├── Zonas flash.kml             # Polígonos de zonas Flash (fuente de verdad)
 ├── Documentacion_Fiabilidad_Datos.md
 ├── requirements.txt
 ├── dashboard/
-│   ├── api/flash/             # Serverless functions (Vercel)
-│   ├── public/data/           # GeoJSON para el mapa
-│   └── src/modules/flash/     # React — página, filtros, mapa
+│   ├── api/flash/              # Serverless functions (Vercel)
+│   ├── public/data/            # GeoJSON para el mapa
+│   └── src/modules/flash/      # React — página, filtros, mapa
 └── .github/workflows/
-    └── kobo_update.yml        # GitHub Actions (cron L-V cada hora)
+    └── kobo_update.yml         # GitHub Actions (cron L-V cada hora)
 ```
 
 ---

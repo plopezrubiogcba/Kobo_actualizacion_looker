@@ -50,16 +50,10 @@ FLASH_TO_LOCALIZACION = {
 # Prioridad de asignación cuando un punto cae en más de un polígono
 ZONE_PRIORITY = ['Frontera', 'C2', 'C14', 'C13', 'C12', 'C1A', 'C6']
 
-# Layer name en el GeoJSON → código de zona
-LAYER_TO_ZONE = {
-    'Zonas Flash — Zona de Frontera': 'Frontera',
-    'Zonas Flash — Poligonos C2':     'C2',
-    'Zonas Flash — Comuna 14':        'C14',
-    'Zonas Flash — Comuna 13':        'C13',
-    'Zonas Flash — 12':               'C12',
-    'Zonas Flash — 1 A':              'C1A',
-    'Zonas Flash — Zona de Control':  'C6',
-}
+# Columna del KML que lleva el código de zona
+ZONE_COL = 'Mapa Flash'
+# El KML usa 'Control'; el resto del stack (DB, dashboard) usa 'C6'
+ZONE_RENAME = {'Control': 'C6'}
 
 CRS_METRICO = "EPSG:22185"  # Gauss-Kruger Faja 5, métrico para Buenos Aires
 
@@ -193,21 +187,12 @@ def procesar_coords_y_fechas(df):
     df['Turno'] = df['start'].apply(asignar_turno)
     return df
 
-def cargar_zonas_flash(geojson_path):
-    """Lee el GeoJSON y devuelve dict zona→GeoDataFrame (EPSG:4326)."""
-    gdf = gpd.read_file(geojson_path)
-    zonas = {}
-    for layer_name, zona_code in LAYER_TO_ZONE.items():
-        subset = gdf[gdf['layer'] == layer_name].copy()
-        if not subset.empty:
-            if subset.crs is None:
-                subset = subset.set_crs("EPSG:4326")
-            else:
-                subset = subset.to_crs("EPSG:4326")
-            zonas[zona_code] = subset
-        else:
-            print(f"  ⚠️ Capa no encontrada en GeoJSON: {layer_name!r}")
-    return zonas
+def cargar_zonas_flash(ruta):
+    """Lee el mapa de zonas (KML u otro formato) y devuelve dict zona→GeoDataFrame (EPSG:4326)."""
+    gdf = gpd.read_file(ruta)
+    gdf = gdf.set_crs("EPSG:4326") if gdf.crs is None else gdf.to_crs("EPSG:4326")
+    gdf[ZONE_COL] = gdf[ZONE_COL].replace(ZONE_RENAME)
+    return {z: sub.copy() for z, sub in gdf.groupby(ZONE_COL)}
 
 
 def clasificar_localizacion(puntos_gdf, zonas_dict, declared_flash=None):
@@ -357,17 +342,17 @@ def main():
     df_nuevos = procesar_coords_y_fechas(df_nuevos)
     df_nuevos.dropna(subset=['latitude', 'longitude'], inplace=True)
     
-    # Cargar capas Geo (nuevo GeoJSON unificado)
+    # Cargar capas Geo (KML de zonas Flash)
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    ruta_geojson = next((os.path.join(root, f) for root, _, files in os.walk(BASE_DIR) for f in files if f.lower() == 'mapas flash.geojson'), None)
+    ruta_kml = next((os.path.join(root, f) for root, _, files in os.walk(BASE_DIR) for f in files if f.lower() == 'zonas flash.kml'), None)
 
-    if ruta_geojson:
-        zonas_dict = cargar_zonas_flash(ruta_geojson)
+    if ruta_kml:
+        zonas_dict = cargar_zonas_flash(ruta_kml)
         puntos_gdf = gpd.GeoDataFrame(df_nuevos, geometry=gpd.points_from_xy(df_nuevos.longitude, df_nuevos.latitude), crs="EPSG:4326")
         declared_flash = df_nuevos.get('geo_ref/relevamiento_flash')
         df_nuevos['Localizacion'] = clasificar_localizacion(puntos_gdf, zonas_dict, declared_flash)
     else:
-        print("⚠️ No se encontró 'Mapas flash.geojson'. Saltando clasificación.")
+        print("⚠️ No se encontró 'Zonas flash.kml'. Saltando clasificación.")
 
     # 5. Formateo y Subida
     df_nuevos['hora_start'] = df_nuevos['start'].dt.strftime('%H:%M:%S')

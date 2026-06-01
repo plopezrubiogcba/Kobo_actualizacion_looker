@@ -16,7 +16,7 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-GEOJSON_PATH = os.path.join(BASE_DIR, "Mapas flash.geojson")
+KML_PATH = os.path.join(BASE_DIR, "Zonas flash.kml")
 
 
 def main():
@@ -31,7 +31,7 @@ def main():
         )
     print(f"   Registros a reclasificar: {len(df)}")
 
-    zonas_dict = cargar_zonas_flash(GEOJSON_PATH)
+    zonas_dict = cargar_zonas_flash(KML_PATH)
 
     puntos_gdf = gpd.GeoDataFrame(
         df,
