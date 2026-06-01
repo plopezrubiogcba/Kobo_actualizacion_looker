@@ -35,7 +35,7 @@ const ZONA_LABEL: Record<string, string> = {
 const zoneStyle = (feature: any) => {
   const zona = feature?.properties?.zona ?? ''
   const color = ZONA_COLOR[zona] ?? '#475569'
-  return { color, weight: 2.5, opacity: 0.9, fillOpacity: 0 }
+  return { color, weight: 2.5, opacity: 0.9, fillColor: color, fillOpacity: 0.18 }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
