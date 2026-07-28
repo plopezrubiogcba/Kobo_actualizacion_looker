@@ -16,7 +16,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       WHERE "Localizacion" IS NOT NULL
       ORDER BY 1
     `
-    const zonas = zonasRaw.map((r: { Localizacion: string }) => r.Localizacion)
+    const zonas = zonasRaw.map((r: Record<string, unknown>) => r.Localizacion as string)
     res.status(200).json({ date_min: range.date_min, date_max: range.date_max, zonas })
   } catch (e) {
     res.status(500).json({ error: String(e) })
