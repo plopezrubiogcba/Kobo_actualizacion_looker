@@ -35,19 +35,19 @@ def enriquecer_registros():
         UPDATE "{NEON_TABLE_NAME}"
         SET
             "fecha_reporte" = CASE
-                WHEN extract(hour from ("start"::timestamp)) < 3
+                WHEN extract(hour from ("start"::timestamp)) < 6
                 THEN ("start"::timestamp)::date - interval '1 day'
                 ELSE ("start"::timestamp)::date
             END,
             "inicio_semana_lunes" = (
                 CASE
-                    WHEN extract(hour from ("start"::timestamp)) < 3
+                    WHEN extract(hour from ("start"::timestamp)) < 6
                     THEN ("start"::timestamp)::date - interval '1 day'
                     ELSE ("start"::timestamp)::date
                 END -
                 (extract(isodow from (
                     CASE
-                        WHEN extract(hour from ("start"::timestamp)) < 3
+                        WHEN extract(hour from ("start"::timestamp)) < 6
                         THEN ("start"::timestamp)::date - interval '1 day'
                         ELSE ("start"::timestamp)::date
                     END

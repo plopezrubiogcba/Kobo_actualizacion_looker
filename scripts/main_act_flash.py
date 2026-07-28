@@ -155,9 +155,8 @@ def extraer_todos_los_forms(since_timestamp=None):
 def asignar_turno(fecha):
     if pd.isnull(fecha): return None
     h = fecha.hour
-    if 3 <= h < 8: return "TM"
-    elif 8 <= h < 16: return "TO"
-    elif 16 <= h < 22: return "TT"
+    if 6 <= h < 14: return "TM"
+    elif 14 <= h < 22: return "TT"
     else: return "TN"
 
 def procesar_coords_y_fechas(df):
@@ -175,7 +174,7 @@ def procesar_coords_y_fechas(df):
 
         def fecha_reporte_corregida(x):
             if pd.isnull(x): return None
-            return (x - pd.Timedelta(days=1)).date() if x.hour < 3 else x.date()
+            return (x - pd.Timedelta(days=1)).date() if x.hour < 6 else x.date()
 
         df['fecha_reporte'] = start_time.apply(fecha_reporte_corregida)
         df['inicio_semana_lunes'] = df['fecha_reporte'].apply(
@@ -275,7 +274,7 @@ def enrich_existing_data(engine):
     print("🔍 Enriqueciendo registros en Neon (vía SQL)...")
     
     # SQL para calcular fecha_reporte e inicio_semana_lunes directamente en la base
-    # La lógica es: restar 3 horas a _submission_time, luego truncar a fecha.
+    # La lógica es: si start.hour < 6, se asigna al día anterior.
     # Para inicio de semana (Lunes): restar (dia_de_la_semana - 1) dias.
     # En Postgres: extract(isodow from date) devuelve 1 para Lunes, 7 para Domingo.
     
@@ -283,15 +282,15 @@ def enrich_existing_data(engine):
         UPDATE "{NEON_TABLE_NAME}"
         SET
             "fecha_reporte" = CASE
-                WHEN extract(hour from ("start"::timestamp)) < 3
+                WHEN extract(hour from ("start"::timestamp)) < 6
                 THEN ("start"::timestamp)::date - interval '1 day'
                 ELSE ("start"::timestamp)::date
             END,
             "inicio_semana_lunes" = (
-                (CASE WHEN extract(hour from ("start"::timestamp)) < 3
+                (CASE WHEN extract(hour from ("start"::timestamp)) < 6
                       THEN ("start"::timestamp)::date - interval '1 day'
                       ELSE ("start"::timestamp)::date END) -
-                (extract(isodow from (CASE WHEN extract(hour from ("start"::timestamp)) < 3
+                (extract(isodow from (CASE WHEN extract(hour from ("start"::timestamp)) < 6
                                            THEN ("start"::timestamp)::date - interval '1 day'
                                            ELSE ("start"::timestamp)::date END))::int - 1) * interval '1 day'
             )::date

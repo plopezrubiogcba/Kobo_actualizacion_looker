@@ -2,7 +2,7 @@ import { useFlashStore } from './store'
 import type { Granularity, Turno } from './types'
 
 const TURNOS: Turno[] = ['TM', 'TT', 'TN']
-const TURNO_LABEL: Record<Turno, string> = { TM: 'Madrugada', TT: 'Tarde', TN: 'Noche' }
+const TURNO_LABEL: Record<Turno, string> = { TM: 'Mañana', TT: 'Tarde', TN: 'Noche' }
 
 const ZONA_LABEL: Record<string, string> = {
   Frontera: 'Zona de Frontera',

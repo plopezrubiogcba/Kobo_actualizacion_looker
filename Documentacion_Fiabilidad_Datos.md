@@ -19,7 +19,7 @@ Anteriormente, los datos podían sufrir un desfasaje de un día debido a:
 - **Beneficio**: Evita que los motores de base de datos asuman que el registro ocurrió a la medianoche (00:00:00).
 
 ### B. `fecha_reporte` (fuente de verdad diaria)
-- **Qué hace**: Extrae el día directamente del campo `start`. Si el registro es de madrugada (antes de las 3:00 hs, turno TN), se asigna al día anterior ya que operativamente pertenece a esa jornada.
+- **Qué hace**: Extrae el día directamente del campo `start`. Si el registro es de madrugada (antes de las 6:00 hs, turno TN), se asigna al día anterior ya que operativamente pertenece a esa jornada.
 - **Uso**: Columna definitiva para el Eje X de todos los gráficos diarios.
 
 ### C. `inicio_semana_lunes` (fuente de verdad semanal)
