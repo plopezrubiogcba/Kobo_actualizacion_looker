@@ -14,6 +14,7 @@ import os
 import json
 import sys
 import re
+import tempfile
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
@@ -49,6 +50,10 @@ FLASH_TO_LOCALIZACION = {
 
 # Prioridad de asignación cuando un punto cae en más de un polígono
 ZONE_PRIORITY = ['Frontera', 'C2', 'C14', 'C13', 'C12', 'C1A', 'C6']
+
+# Recorridos por dupla (KML con polígonos)
+RECORRIDOS_KML = 'recorridos_consultora.kml'
+DUPLA_COL = 'dupla'
 
 # Columna del KML que lleva el código de zona
 ZONE_COL = 'Mapa Flash'
@@ -193,6 +198,57 @@ def cargar_zonas_flash(ruta):
     gdf = gdf.set_crs("EPSG:4326") if gdf.crs is None else gdf.to_crs("EPSG:4326")
     gdf[ZONE_COL] = gdf[ZONE_COL].replace(ZONE_RENAME)
     return {z: sub.copy() for z, sub in gdf.groupby(ZONE_COL)}
+
+
+def cargar_recorridos(ruta):
+    """Lee KML de recorridos por dupla y disuelve polígonos (uno por dupla)."""
+    gdf = gpd.read_file(ruta)
+    gdf = gdf.set_crs("EPSG:4326") if gdf.crs is None else gdf.to_crs("EPSG:4326")
+
+    def extraer_numero_dupla(row):
+        v = row.get('Id_')
+        if v is not None and str(v).strip():
+            try:
+                return int(v)
+            except (ValueError, TypeError):
+                pass
+        texto = f"{row.get('Name', '')} {row.get('layer', '')}"
+        m = re.search(r'Dupla\s+(\d+)', str(texto))
+        return int(m.group(1)) if m else None
+
+    gdf[DUPLA_COL] = gdf.apply(extraer_numero_dupla, axis=1)
+    gdf = gdf.dropna(subset=[DUPLA_COL])
+    gdf[DUPLA_COL] = gdf[DUPLA_COL].astype(int)
+    gdf = gdf[['geometry', DUPLA_COL]].dissolve(by=DUPLA_COL, aggfunc='first').reset_index()
+    return gdf
+
+
+def asignar_dupla(puntos_gdf, recorridos_gdf):
+    """Asigna nro de dupla a cada punto según polígonos de recorrido.
+    Solapamiento → gana la dupla de menor número. Fuera de todo polígono → None."""
+    puntos_gdf = puntos_gdf.copy()
+    puntos_gdf[DUPLA_COL] = None
+    if recorridos_gdf is None or recorridos_gdf.empty:
+        return puntos_gdf[DUPLA_COL]
+
+    joined = gpd.sjoin(
+        puntos_gdf.to_crs("EPSG:4326"),
+        recorridos_gdf.to_crs("EPSG:4326"),
+        how='left', predicate='intersects'
+    )
+    right_col = f'{DUPLA_COL}_right'
+    if right_col not in joined.columns:
+        return puntos_gdf[DUPLA_COL]
+
+    dupla_min = joined.groupby(joined.index)[right_col].min()
+    puntos_gdf[DUPLA_COL] = puntos_gdf.index.map(dupla_min)
+    return puntos_gdf[DUPLA_COL].astype('Int64')
+
+
+def ensure_dupla_column(engine):
+    with engine.connect() as conn:
+        conn.execute(text(f'ALTER TABLE "{NEON_TABLE_NAME}" ADD COLUMN IF NOT EXISTS "{DUPLA_COL}" integer'))
+        conn.commit()
 
 
 def clasificar_localizacion(puntos_gdf, zonas_dict, declared_flash=None):
@@ -373,6 +429,19 @@ def main():
     else:
         print("⚠️ No se encontró 'Zonas flash.kml'. Saltando clasificación.")
 
+    # Asignar dupla según polígonos de recorridos (KML)
+    ruta_recorridos = os.path.join(PROJ_ROOT, RECORRIDOS_KML)
+    if os.path.exists(ruta_recorridos):
+        try:
+            recorridos_gdf = cargar_recorridos(ruta_recorridos)
+            df_nuevos[DUPLA_COL] = asignar_dupla(puntos_gdf, recorridos_gdf)
+        except Exception as e:
+            print(f"⚠️ Error asignando dupla: {e}")
+            df_nuevos[DUPLA_COL] = None
+    else:
+        print(f"⚠️ No se encontró '{RECORRIDOS_KML}'. Saltando asignación de dupla.")
+        df_nuevos[DUPLA_COL] = None
+
     # 5. Formateo y Subida
     df_nuevos['hora_start'] = df_nuevos['start'].dt.strftime('%H:%M:%S')
     # Mantenemos el timestamp completo para 'start' para evitar desfasajes en enriquecimiento SQL
@@ -398,13 +467,14 @@ def main():
         'Características observables del punto', 'Se observan niños/as en el punto',
         'datos_per/sit_calle', 'fecha_reporte', 'inicio_semana_lunes',
         '_id', '_uuid', '_submission_time', '_status', '_submitted_by', 'Localizacion',
-        'tipo_flash', 'tipo_flash_otro'
+        'tipo_flash', 'tipo_flash_otro', DUPLA_COL
     ]
     # Usar las que existan en el df para evitar reindex con NaNs innecesarios si no vienen
     cols_presentes = [c for c in columnas_finales if c in df_nuevos.columns]
     df_final = df_nuevos[cols_presentes]
 
     try:
+        ensure_dupla_column(engine)
         subir_a_neon(df_final, engine)
         print("✅ Subida a Neon exitosa.")
         
@@ -422,9 +492,16 @@ def main():
     # Preservation of the logic as requested
     try:
         # Intento de conexión simplificado
-        possible_creds = ['kobo-looker-connect.json', 'credenciales.json']
-        ruta_creds = next((os.path.join(root, f) for root, _, files in os.walk(PROJ_ROOT) for f in files if f in possible_creds), None)
-        
+        ruta_creds = None
+        creds_env = os.environ.get('GOOGLE_CREDENTIALS_JSON')
+        if creds_env:
+            fd, ruta_creds = tempfile.mkstemp(suffix='.json')
+            with os.fdopen(fd, 'w') as f:
+                f.write(creds_env)
+        if ruta_creds is None:
+            possible_creds = ['kobo-looker-connect.json', 'credenciales.json']
+            ruta_creds = next((os.path.join(root, f) for root, _, files in os.walk(PROJ_ROOT) for f in files if f in possible_creds), None)
+
         if ruta_creds:
             scope = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets', "https://www.googleapis.com/auth/drive.file"]
             creds = ServiceAccountCredentials.from_json_keyfile_name(ruta_creds, scope)

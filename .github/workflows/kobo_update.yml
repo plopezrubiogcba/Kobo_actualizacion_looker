@@ -45,3 +45,10 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python scripts/enriquecer_base.py
+
+      - name: Sincronizar sheet de duplas
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          SHEET_DUPLAS: ${{ vars.SHEET_DUPLAS }}
+        run: python scripts/sync_sheet_duplas.py

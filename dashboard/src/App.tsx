@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { NavBar } from '@/components/layout/NavBar'
 import { FlashPage } from '@/modules/flash/FlashPage'
 import { FlashMapa } from '@/modules/flash/FlashMapa'
+import { ControlPage } from '@/modules/control/ControlPage'
 
 function App() {
   return (
@@ -11,6 +12,7 @@ function App() {
         <Routes>
           <Route path="/"     element={<FlashPage />} />
           <Route path="/mapa" element={<FlashMapa />} />
+          <Route path="/control" element={<ControlPage />} />
         </Routes>
       </div>
     </BrowserRouter>

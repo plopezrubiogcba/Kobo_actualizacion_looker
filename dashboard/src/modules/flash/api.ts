@@ -1,4 +1,4 @@
-import type { FlashMeta, FlashPoint, FlashSummary, Granularity, Turno } from './types'
+import type { FlashMeta, FlashPoint, FlashSummary, Granularity, Turno, ControlData } from './types'
 
 const buildParams = (
   params: Record<string, string | number | string[] | number[]>
@@ -52,5 +52,22 @@ export const fetchFlashPoints = async (opts: {
   })
   const res = await fetch(`/api/flash/points?${qs}`)
   if (!res.ok) throw new Error(`points: ${res.status}`)
+  return res.json()
+}
+
+export const fetchControl = async (opts: {
+  desde: string
+  hasta: string
+  duplas: number[]
+  turnos: Turno[]
+}): Promise<ControlData> => {
+  const qs = buildParams({
+    desde: opts.desde,
+    hasta: opts.hasta,
+    duplas: opts.duplas,
+    turnos: opts.turnos,
+  })
+  const res = await fetch(`/api/flash/control?${qs}`)
+  if (!res.ok) throw new Error(`control: ${res.status}`)
   return res.json()
 }

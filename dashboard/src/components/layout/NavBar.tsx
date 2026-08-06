@@ -14,6 +14,7 @@ export const NavBar = () => (
       <nav className="flex gap-1">
         <NavLink to="/" className={cls} end>Dashboard</NavLink>
         <NavLink to="/mapa" className={cls}>Mapa</NavLink>
+        <NavLink to="/control" className={cls}>Control</NavLink>
       </nav>
       <a
         href="https://kobo-omega.vercel.app/"

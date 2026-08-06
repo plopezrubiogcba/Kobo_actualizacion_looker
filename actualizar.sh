@@ -12,6 +12,10 @@ echo "=== 2/3 Enriqueciendo registros ==="
 python scripts/enriquecer_base.py
 
 echo ""
+echo "=== 2b/3 Sincronizando sheet de duplas ==="
+python scripts/sync_sheet_duplas.py
+
+echo ""
 echo "=== 3/3 Deploy a Vercel ==="
 cd "$SCRIPT_DIR/dashboard"
 vercel --prod --yes

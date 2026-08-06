@@ -27,3 +27,21 @@ export interface FlashMeta {
   date_max: string
   zonas: string[]
 }
+
+export type ControlEstado = 'ok' | 'falta_subir' | 'sin_declarar'
+
+export interface ControlRow {
+  fecha: string
+  turnos: Turno[]
+  turnos_declarados: Turno[]
+  dupla: number
+  kobo: number
+  sheet: number
+  diff: number
+  estado: ControlEstado
+}
+
+export interface ControlData {
+  rows: ControlRow[]
+  sin_dupla: number
+}
