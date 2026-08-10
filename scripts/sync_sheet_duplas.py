@@ -101,6 +101,16 @@ def parse_int(valor):
     return int(m.group(0)) if m else None
 
 
+def parse_foto_url(valor):
+    """Columna Foto: link Drive al recorrido. 'Sin captura' o vacío → None."""
+    if not valor:
+        return None
+    texto = str(valor).strip()
+    if not texto or texto.lower() in ('sin captura', 'sin_captura', 'n/a', '-'):
+        return None
+    return texto
+
+
 def main():
     if not DATABASE_URL:
         print("❌ ERROR: DATABASE_URL no configurada.")
@@ -143,6 +153,7 @@ def main():
             fecha, turno, dupla, registros,
             str(r.get('Responsable') or '').strip(),
             str(r.get('Polígono') or '').strip(),
+            parse_foto_url(r.get('Foto')),
             i + 2,
         ))
 
@@ -152,7 +163,7 @@ def main():
 
     df_out = pd.DataFrame(
         filas,
-        columns=['fecha', 'turno', 'dupla', 'registros', 'responsable', 'poligono', 'sheet_row'],
+        columns=['fecha', 'turno', 'dupla', 'registros', 'responsable', 'poligono', 'foto_url', 'sheet_row'],
     )
 
     engine = create_engine(DATABASE_URL)
@@ -165,10 +176,12 @@ def main():
                 registros INTEGER,
                 responsable TEXT,
                 poligono TEXT,
+                foto_url TEXT,
                 sheet_row INTEGER,
                 synced_at TIMESTAMPTZ DEFAULT now()
             )
         '''))
+        conn.execute(text(f'ALTER TABLE "{NEON_TABLE}" ADD COLUMN IF NOT EXISTS foto_url TEXT'))
         conn.commit()
 
     fechas_lote = sorted(df_out['fecha'].astype(str).unique().tolist())

@@ -19,7 +19,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         COALESCE(k.kobo, 0)::int AS kobo,
         COALESCE(s.sheet, 0)::int AS sheet,
         COALESCE(s.turnos_sheet, '{}') AS turnos_sheet,
-        COALESCE(s.turnos_sheet, '{}') || COALESCE(k.turnos_kobo, '{}') AS turnos
+        COALESCE(s.turnos_sheet, '{}') || COALESCE(k.turnos_kobo, '{}') AS turnos,
+        COALESCE(s.fotos, '[]') AS fotos
       FROM (
         SELECT
           "fecha_reporte" AS fecha,
@@ -39,7 +40,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           fecha,
           dupla,
           SUM(registros)::int AS sheet,
-          array_agg(DISTINCT turno) FILTER (WHERE turno IS NOT NULL) AS turnos_sheet
+          array_agg(DISTINCT turno) FILTER (WHERE turno IS NOT NULL) AS turnos_sheet,
+          jsonb_agg(jsonb_build_object('turno', turno, 'url', foto_url) ORDER BY sheet_row)
+            FILTER (WHERE foto_url IS NOT NULL) AS fotos
         FROM control_duplas_sheet
         WHERE
           fecha BETWEEN ${desde}::date AND ${hasta}::date
@@ -84,6 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         estado,
         turnos: [...new Set(turnosArr)].filter(Boolean),
         turnos_declarados: [...new Set(turnosSheet)].filter(Boolean),
+        fotos: r.fotos as { turno: string | null; url: string }[] ?? [],
       }
     })
 

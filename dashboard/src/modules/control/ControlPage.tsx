@@ -190,6 +190,7 @@ export const ControlPage = () => {
                       <th className="py-2 pr-4 text-right">Verificado</th>
                       <th className="py-2 pr-4 w-[30%]">Cobertura</th>
                       <th className="py-2 pr-4">Estado</th>
+                      <th className="py-2 pr-4">Recorrido</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -221,6 +222,29 @@ export const ControlPage = () => {
                               {r.estado === 'falta_subir' && <span>{badge.label} {falta > 0 && <span className="font-bold">{falta}</span>}</span>}
                               {r.estado !== 'falta_subir' && badge.label}
                             </span>
+                          </td>
+                          <td className="py-2.5 pr-4">
+                            {r.fotos.length === 0 ? (
+                              <span className="text-gray-300">—</span>
+                            ) : (
+                              <div className="flex flex-wrap gap-1.5">
+                                {r.fotos.map((f, i) => (
+                                  <a
+                                    key={i}
+                                    href={f.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 transition-colors"
+                                  >
+                                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                                      <circle cx="12" cy="10" r="3" />
+                                    </svg>
+                                    {r.fotos.length > 1 && f.turno ? `Recorrido ${f.turno}` : 'Recorrido'}
+                                  </a>
+                                ))}
+                              </div>
+                            )}
                           </td>
                         </tr>
                       )

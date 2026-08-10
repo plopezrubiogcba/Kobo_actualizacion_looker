@@ -39,6 +39,7 @@ export interface ControlRow {
   sheet: number
   diff: number
   estado: ControlEstado
+  fotos: { turno: Turno | null; url: string }[]
 }
 
 export interface ControlData {
