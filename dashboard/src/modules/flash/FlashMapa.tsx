@@ -152,9 +152,8 @@ export const FlashMapa = () => {
           className="bg-slate-900"
         >
           <TileLayer
-            className="dark-tiles"
-            url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            attribution='&copy; <a href="https://www.esri.com/">Esri</a> &mdash; <a href="https://www.maxar.com/">Maxar</a>'
           />
           {geojson && (
             <GeoJSON
