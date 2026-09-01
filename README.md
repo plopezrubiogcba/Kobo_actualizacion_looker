@@ -32,21 +32,27 @@ Vercel (deploy automático en push a main)
 
 ## Clasificación geográfica
 
-Fuente única: **`Zonas flash.kml`** — 7 zonas operativas Flash (vigente desde 2026-05-29).
+Fuente única: **`assets/mapas flash fronteras nuevos.kml`** — 11 zonas operativas Flash (vigente desde 2026-09-01). La columna `Tablero` del KML define el nombre final de zona.
 
-| Zona | Barrio | Nota KML |
-|------|--------|----------|
-| C2   | Recoleta | — |
-| C14  | Palermo | — |
-| C13  | Belgrano-Núñez | — |
-| C12  | Comuna 12 | — |
-| C1A  | Retiro / Recoleta Norte | — |
-| C6   | Caballito | campo `Mapa Flash` = `Control` → renombrado a `C6` al cargar |
-| Frontera | Zona de frontera | — |
+| Zona | Nota KML (`Tipo`) |
+|------|--------|
+| C1A | Norte |
+| C2 | Norte |
+| C14 | Norte |
+| C13 | Norte |
+| C12 | Centro |
+| Frontera Norte | Frontera Norte (antes `Frontera`) |
+| Frontera Sur-este | Frontera Sur-este |
+| C6 Centro | Centro (antes `C6`) |
+| C5 Centro | Centro |
+| C3 Centro | Centro |
+| C15 Centro | Centro |
 
-Prioridad en solapamientos: `Frontera > C2 > C14 > C13 > C12 > C1A > C6`.
+Prioridad en solapamientos: `Frontera Norte > Frontera Sur-este > C2 > C14 > C13 > C12 > C1A > C15 Centro > C5 Centro > C3 Centro > C6 Centro`.
 
-Desde 2026-03-17 el formulario incluye `tipo_flash` (zona declarada por el operador). Si la declaración difiere del GPS y el punto está a menos de 100 m del borde, se usa la declaración.
+Desde septiembre los formularios ya no incluyen `tipo_flash` (zona declarada): la clasificación es **solo por GPS** (sin override declarado).
+
+Recorridos por dupla: `assets/recorridos flash norte.kml` (duplas 1–19) + `assets/recorridos flash centro.kml` (duplas 21–33). Dupla 20 eliminada.
 
 ---
 
@@ -54,11 +60,14 @@ Desde 2026-03-17 el formulario incluye `tipo_flash` (zona declarada por el opera
 
 ```
 ├── scripts/
-│   ├── main_act_flash.py           # ETL principal
+│   ├── main_act_flash.py           # ETL principal (3 forms Kobo: Norte/Centro/Sur)
 │   ├── enriquecer_base.py          # Post-proceso Neon
 │   ├── reclasificar_historico.py   # Reclasificación histórica puntual
 │   └── generar_overlay_dashboard.py# Regenera mapa_flash.geojson desde el KML
-├── Zonas flash.kml                 # Polígonos de zonas Flash (fuente de verdad)
+├── assets/
+│   ├── mapas flash fronteras nuevos.kml  # Polígonos de zonas Flash (fuente de verdad)
+│   ├── recorridos flash norte.kml        # Recorridos duplas 1-19
+│   └── recorridos flash centro.kml       # Recorridos duplas 21-33
 ├── actualizar.sh                   # Helper local: ETL + deploy Vercel
 ├── Documentacion_Fiabilidad_Datos.md
 ├── requirements.txt
@@ -76,7 +85,9 @@ Desde 2026-03-17 el formulario incluye `tipo_flash` (zona declarada por el opera
 
 | Variable | Dónde |
 |----------|-------|
-| `KOBO_TOKEN` | GitHub Secret + `.env` local |
+| `KOBO_TOKEN_NORTE` | GitHub Secret + `.env` local |
+| `KOBO_TOKEN_CENTRO` | GitHub Secret + `.env` local |
+| `KOBO_TOKEN_SUR` | GitHub Secret + `.env` local |
 | `DATABASE_URL` | GitHub Secret + `.env` local |
 
 ---

@@ -1,226 +1,241 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
 <Document id="root_doc">
-<Schema name="recorridos_consultora" id="recorridos_consultora">
+<Schema name="recorridos_flash_norte" id="recorridos_flash_norte">
 	<SimpleField name="layer" type="string"></SimpleField>
 	<SimpleField name="Id_" type="int"></SimpleField>
+	<SimpleField name="area" type="float"></SimpleField>
 </Schema>
-<Folder><name>recorridos_consultora</name>
-  <Placemark id="recorridos_consultora.1">
+<Folder><name>recorridos_flash_norte</name>
+  <Placemark id="recorridos_flash_norte.1">
 	<name>Dupla 02 - Límite polígono 1</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 02 - Recoleta</SimpleData>
 		<SimpleData name="Id_">2</SimpleData>
+		<SimpleData name="area">1.474</SimpleData>
 	</SchemaData></ExtendedData>
       <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.4046544447465,-34.5822361597246,0 -58.40095,-34.578507,0 -58.381681,-34.588683,0 -58.3821105957415,-34.5927622806858,0 -58.388625,-34.592902,0 -58.390917,-34.590954,0 -58.391561522246,-34.5919041792852,0 -58.4046544447465,-34.5822361597246,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.2">
+  <Placemark id="recorridos_flash_norte.2">
 	<name>Dupla 03 - Límite polígono 1</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 03 - Recoleta</SimpleData>
 		<SimpleData name="Id_">3</SimpleData>
+		<SimpleData name="area">1.283</SimpleData>
 	</SchemaData></ExtendedData>
       <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.390917,-34.590954,0 -58.388625,-34.592902,0 -58.3822148339015,-34.5927622806858,0 -58.381865,-34.603954,0 -58.387375,-34.604143,0 -58.392198,-34.604403,0 -58.393419,-34.593546,0 -58.390917,-34.590954,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.3">
+  <Placemark id="recorridos_flash_norte.3">
 	<name>Dupla 03 - Límite polígono 2</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 03 - Recoleta</SimpleData>
 		<SimpleData name="Id_">3</SimpleData>
+		<SimpleData name="area">1.571</SimpleData>
 	</SchemaData></ExtendedData>
-      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.3924852855201,-34.604403,0 -58.399289,-34.605227,0 -58.4054251975227,-34.6045745757024,0 -58.3998310829373,-34.5889865682278,0 -58.3974683513112,-34.5874419091313,0 -58.3916657604059,-34.5917611615234,0 -58.3931062855201,-34.593546,0 -58.3924852855201,-34.604403,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.3924852855201,-34.604403,0 -58.398749455631,-34.6045815116092,0 -58.4053340181878,-34.6047477653063,0 -58.3998310829373,-34.5889865682278,0 -58.3974683513112,-34.5874419091313,0 -58.3916657604059,-34.5917611615234,0 -58.3931062855201,-34.593546,0 -58.3924852855201,-34.604403,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.4">
+  <Placemark id="recorridos_flash_norte.4">
 	<name>Dupla 04 - Límite polígono 1</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 04 - Recoleta</SimpleData>
 		<SimpleData name="Id_">4</SimpleData>
+		<SimpleData name="area">2.361</SimpleData>
 	</SchemaData></ExtendedData>
       <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.406044,-34.583548,0 -58.401917,-34.583552,0 -58.39755,-34.587527,0 -58.399921,-34.589029,0 -58.4054251975227,-34.6045173773532,0 -58.4090630631468,-34.6043365995637,0 -58.417760046453,-34.6032590037024,0 -58.4143549332272,-34.5941066217269,0 -58.406044,-34.583548,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.5">
+  <Placemark id="recorridos_flash_norte.5">
 	<name>Dupla 05 - Límite polígono 1</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 05 - Palermo</SimpleData>
 		<SimpleData name="Id_">5</SimpleData>
+		<SimpleData name="area">2.846</SimpleData>
 	</SchemaData></ExtendedData>
-      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.406156,-34.583421,0 -58.411039,-34.588545,0 -58.40628,-34.58376,0 -58.412657,-34.591999,0 -58.4148761240271,-34.5957083613736,0 -58.41530152368,-34.596647,0 -58.4176210622397,-34.6033162029184,0 -58.4257863847711,-34.602658409556,0 -58.4322838967429,-34.6019720109272,0 -58.438343,-34.599909,0 -58.422378,-34.589298,0 -58.411005,-34.582466,0 -58.407442,-34.583064,0 -58.406156,-34.583421,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.406156,-34.583421,0 -58.4058870486194,-34.5833602899879,0 -58.40628,-34.58376,0 -58.412657,-34.591999,0 -58.4148761240271,-34.5957083613736,0 -58.41530152368,-34.596647,0 -58.4176210622397,-34.6033162029184,0 -58.4257863847711,-34.602658409556,0 -58.4322838967429,-34.6019720109272,0 -58.438343,-34.599909,0 -58.422378,-34.589298,0 -58.411005,-34.582466,0 -58.407442,-34.583064,0 -58.406156,-34.583421,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.6">
+  <Placemark id="recorridos_flash_norte.6">
 	<name>Dupla 06 - Límite polígono 1</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 06 - Palermo</SimpleData>
 		<SimpleData name="Id_">6</SimpleData>
+		<SimpleData name="area">4.494</SimpleData>
 	</SchemaData></ExtendedData>
       <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.4242505316097,-34.570473603106,0 -58.4339798776873,-34.5650788136307,0 -58.4447848298639,-34.5605694563522,0 -58.434715,-34.553605,0 -58.418666,-34.564835,0 -58.410211,-34.571086,0 -58.40184,-34.576559,0 -58.40095,-34.578507,0 -58.40409,-34.58156,0 -58.404715,-34.582809,0 -58.41099,-34.582229,0 -58.425356,-34.578109,0 -58.4242505316097,-34.570473603106,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.7">
+  <Placemark id="recorridos_flash_norte.7">
 	<name>Dupla 07 - Límite polígono 1</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 07 - Palermo</SimpleData>
 		<SimpleData name="Id_">7</SimpleData>
+		<SimpleData name="area">2.747</SimpleData>
 	</SchemaData></ExtendedData>
       <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.438343,-34.599909,0 -58.442138,-34.59692,0 -58.4455568891131,-34.5936489761552,0 -58.4393373455679,-34.589186799712,0 -58.437209,-34.587934,0 -58.435825,-34.587298,0 -58.436319,-34.586989,0 -58.434473,-34.585549,0 -58.4335000086093,-34.5860688547171,0 -58.4332220401827,-34.5862404848153,0 -58.4310627144799,-34.5842761266797,0 -58.431319,-34.584198,0 -58.425343,-34.57896,0 -58.420189,-34.581067,0 -58.411526,-34.582247,0 -58.438343,-34.599909,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.8">
+  <Placemark id="recorridos_flash_norte.8">
 	<name>Dupla 08 - Límite polígono 1</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 08 - Palermo</SimpleData>
 		<SimpleData name="Id_">8</SimpleData>
+		<SimpleData name="area">1.774</SimpleData>
 	</SchemaData></ExtendedData>
       <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.450767,-34.588665,0 -58.444459,-34.583471,0 -58.435704,-34.575344,0 -58.426391,-34.57863,0 -58.445446,-34.593752,0 -58.44742,-34.592516,0 -58.450767,-34.588665,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.9">
+  <Placemark id="recorridos_flash_norte.9">
 	<name>Dupla 09 - Límite polígono 1</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 09 - Colegiales</SimpleData>
 		<SimpleData name="Id_">9</SimpleData>
+		<SimpleData name="area">2.786</SimpleData>
 	</SchemaData></ExtendedData>
-      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.455893,-34.583141,0 -58.46027,-34.578194,0 -58.463258,-34.575227,0 -58.460919,-34.572476,0 -58.4575095314569,-34.5694759873113,0 -58.4560501972173,-34.5700482102887,0 -58.4535137353246,-34.5708207050616,0 -58.4502128602587,-34.5721081804005,0 -58.4494484470855,-34.5722798422727,0 -58.4488925102323,-34.5725373344165,0 -58.4459390956997,-34.5735672950168,0 -58.4443407772467,-34.5743683666621,0 -58.4426382206338,-34.5750549933573,0 -58.4405534574343,-34.5758846597143,0 -58.4376695350083,-34.5768859701524,0 -58.445174,-34.584696,0 -58.4507687971119,-34.5885002897574,0 -58.45291,-34.586179,0 -58.455893,-34.583141,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.455893,-34.583141,0 -58.46027,-34.578194,0 -58.4667351822517,-34.5727325904041,0 -58.4607094286153,-34.5686666987195,0 -58.4575095314569,-34.5694759873113,0 -58.4560501972173,-34.5700482102887,0 -58.4535137353246,-34.5708207050616,0 -58.4502128602587,-34.5721081804005,0 -58.4494484470855,-34.5722798422727,0 -58.4488925102323,-34.5725373344165,0 -58.4459390956997,-34.5735672950168,0 -58.4443407772467,-34.5743683666621,0 -58.4426382206338,-34.5750549933573,0 -58.4405534574343,-34.5758846597143,0 -58.4376695350083,-34.5768859701524,0 -58.445174,-34.584696,0 -58.4507687971119,-34.5885002897574,0 -58.45291,-34.586179,0 -58.455893,-34.583141,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.10">
+  <Placemark id="recorridos_flash_norte.10">
 	<name>Dupla 10 - Límite polígono 1</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 10 - Belgrano</SimpleData>
 		<SimpleData name="Id_">10</SimpleData>
+		<SimpleData name="area">2.386</SimpleData>
 	</SchemaData></ExtendedData>
       <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.4625812216841,-34.5555766684741,0 -58.457972,-34.553405,0 -58.450376,-34.558388,0 -58.4412646644489,-34.5620994442611,0 -58.4353977220906,-34.564273589191,0 -58.4294480674599,-34.5673809563595,0 -58.431579,-34.569167,0 -58.428102,-34.57256,0 -58.432094,-34.57415,0 -58.437673,-34.56839,0 -58.442007,-34.571217,0 -58.4522162901844,-34.565884030274,0 -58.4625812216841,-34.5555766684741,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.11">
+  <Placemark id="recorridos_flash_norte.11">
 	<name>Dupla 11 - Límite polígono 1</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 11 - Belgrano</SimpleData>
 		<SimpleData name="Id_">11</SimpleData>
+		<SimpleData name="area">1.624</SimpleData>
 	</SchemaData></ExtendedData>
       <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.462737,-34.555809,0 -58.45726,-34.560648,0 -58.4522483013068,-34.5658264694152,0 -58.4354457875955,-34.5753696928829,0 -58.439128869248,-34.5761993585802,0 -58.4573358011903,-34.5695332097863,0 -58.462308,-34.563867,0 -58.4672258843844,-34.5577912484656,0 -58.462737,-34.555809,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.12">
+  <Placemark id="recorridos_flash_norte.12">
 	<name>Dupla 12 - Límite polígono 1</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 12 - Belgrano R</SimpleData>
 		<SimpleData name="Id_">12</SimpleData>
+		<SimpleData name="area">1.467</SimpleData>
 	</SchemaData></ExtendedData>
       <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.459782,-34.568054,0 -58.460678,-34.568613,0 -58.461646,-34.569121,0 -58.463169,-34.570093,0 -58.463796,-34.57045,0 -58.46532,-34.571387,0 -58.467852,-34.572861,0 -58.468216,-34.573069,0 -58.468614,-34.573243,0 -58.469236,-34.573656,0 -58.470759,-34.574442,0 -58.472304,-34.575414,0 -58.473651,-34.576136,0 -58.474353,-34.575286,0 -58.476016,-34.573434,0 -58.47846,-34.570711,0 -58.479587,-34.569262,0 -58.479932,-34.569167,0 -58.478093,-34.568244,0 -58.475716,-34.567392,0 -58.473532,-34.566781,0 -58.464412,-34.560971,0 -58.46385,-34.561736,0 -58.46321,-34.562802,0 -58.46291,-34.563084,0 -58.461981,-34.564132,0 -58.459633,-34.566903,0 -58.45889937359,-34.5675590116441,0 -58.459782,-34.568054,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.13">
+  <Placemark id="recorridos_flash_norte.13">
 	<name>Dupla 13 - Límite polígono 1</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 13 - Núñez</SimpleData>
 		<SimpleData name="Id_">13</SimpleData>
+		<SimpleData name="area">2.769</SimpleData>
 	</SchemaData></ExtendedData>
       <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.467715,-34.536332,0 -58.4669,-34.536014,0 -58.454069,-34.549376,0 -58.444198,-34.54577,0 -58.4345665719231,-34.5534022962182,0 -58.4447848298639,-34.5606499827333,0 -58.4463004566398,-34.5600460329751,0 -58.4493317101916,-34.5586770639548,0 -58.4580343413564,-34.5532814960933,0 -58.460603,-34.550648,0 -58.4644879779506,-34.546315058879,0 -58.467715,-34.536332,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.14">
+  <Placemark id="recorridos_flash_norte.14">
 	<name>Dupla 14 - Límite polígono 1</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 14 - Nuñez</SimpleData>
 		<SimpleData name="Id_">14</SimpleData>
+		<SimpleData name="area">0.971</SimpleData>
 	</SchemaData></ExtendedData>
       <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.47433,-34.549366,0 -58.478581,-34.540658,0 -58.475483,-34.539549,0 -58.462783,-34.555684,0 -58.467257,-34.557766,0 -58.4734839562333,-34.5504627767205,0 -58.47433,-34.549366,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.15">
+  <Placemark id="recorridos_flash_norte.15">
 	<name>Dupla 14 - Límite polígono 2</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 14 - Nuñez</SimpleData>
 		<SimpleData name="Id_">14</SimpleData>
+		<SimpleData name="area">1.078</SimpleData>
 	</SchemaData></ExtendedData>
       <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.475054,-34.539372,0 -58.468059,-34.536544,0 -58.466943,-34.540256,0 -58.464196,-34.546619,0 -58.4580832325427,-34.5534425628876,0 -58.462727895243,-34.5556974652665,0 -58.475054,-34.539372,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.16">
+  <Placemark id="recorridos_flash_norte.16">
 	<name>Dupla 15 - Límite polígono 1</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 15 - Saavedra</SimpleData>
 		<SimpleData name="Id_">15</SimpleData>
+		<SimpleData name="area">2.101</SimpleData>
 	</SchemaData></ExtendedData>
       <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.476471,-34.56255,0 -58.4793020074053,-34.5594420788317,0 -58.481677,-34.555787,0 -58.48574,-34.550609,0 -58.484184,-34.549398,0 -58.48747,-34.545006,0 -58.478581,-34.540658,0 -58.47433,-34.549366,0 -58.467257,-34.557766,0 -58.476462,-34.562562,0 -58.476473,-34.56255,0 -58.476471,-34.56255,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.17">
+  <Placemark id="recorridos_flash_norte.17">
 	<name>Dupla 15 - Límite polígono 2</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 15 - Saavedra</SimpleData>
 		<SimpleData name="Id_">15</SimpleData>
+		<SimpleData name="area">2.124</SimpleData>
 	</SchemaData></ExtendedData>
       <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.486582,-34.567801,0 -58.48791,-34.566408,0 -58.48928,-34.564785,0 -58.490285,-34.563578,0 -58.491077,-34.562506,0 -58.491805,-34.561381,0 -58.49604,-34.554642,0 -58.497226,-34.553182,0 -58.497926,-34.552169,0 -58.49884,-34.551404,0 -58.499462,-34.550406,0 -58.498003,-34.549045,0 -58.495056,-34.547975,0 -58.492996,-34.548876,0 -58.491726,-34.550538,0 -58.490021,-34.552822,0 -58.487548,-34.551487,0 -58.48574,-34.550609,0 -58.480568,-34.557501,0 -58.478873,-34.56006,0 -58.476473,-34.56255,0 -58.476888,-34.562758,0 -58.477981,-34.563238,0 -58.483162,-34.566058,0 -58.486582,-34.567801,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.18">
+  <Placemark id="recorridos_flash_norte.18">
 	<name>Dupla 16 - Límite polígono 1</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 16 - Saavedra</SimpleData>
 		<SimpleData name="Id_">16</SimpleData>
+		<SimpleData name="area">1.139</SimpleData>
 	</SchemaData></ExtendedData>
       <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.504006,-34.567326,0 -58.49627,-34.563571,0 -58.492338,-34.561338,0 -58.491805,-34.561381,0 -58.493577,-34.558864,0 -58.486643,-34.567862,0 -58.492769,-34.570889,0 -58.498642,-34.573934,0 -58.501775,-34.570153,0 -58.504006,-34.567326,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.19">
+  <Placemark id="recorridos_flash_norte.19">
 	<name>Dupla 17 - Límite polígono 2</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 17 - Villa Urquiza</SimpleData>
 		<SimpleData name="Id_">17</SimpleData>
+		<SimpleData name="area">1.549</SimpleData>
 	</SchemaData></ExtendedData>
       <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.480129,-34.579739,0 -58.484771,-34.58255,0 -58.488598,-34.584867,0 -58.495218,-34.579508,0 -58.488556,-34.575392,0 -58.482635,-34.570742,0 -58.479932,-34.569167,0 -58.47846,-34.570711,0 -58.477858,-34.571488,0 -58.477166,-34.572264,0 -58.475522,-34.574114,0 -58.473651,-34.576136,0 -58.475475,-34.577242,0 -58.479015,-34.579106,0 -58.480129,-34.579739,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.20">
+  <Placemark id="recorridos_flash_norte.20">
 	<name>Dupla 18 - Límite polígono 1</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 18 - Villa Urquiza</SimpleData>
 		<SimpleData name="Id_">18</SimpleData>
+		<SimpleData name="area">1.704</SimpleData>
 	</SchemaData></ExtendedData>
       <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.494839,-34.578755,0 -58.498492,-34.574252,0 -58.495616,-34.572592,0 -58.493916,-34.571702,0 -58.492131,-34.5709,0 -58.488314,-34.568802,0 -58.485912,-34.5675,0 -58.481632,-34.565371,0 -58.467257,-34.557766,0 -58.464412,-34.560971,0 -58.47259,-34.56597,0 -58.479094,-34.56853,0 -58.483563,-34.571193,0 -58.484754,-34.57243,0 -58.486824,-34.57402,0 -58.489008,-34.575306,0 -58.493412,-34.577783,0 -58.494839,-34.578755,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.21">
+  <Placemark id="recorridos_flash_norte.21">
 	<name>Dupla 19 - Límite polígono 1</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 19 - Villa Urquiza</SimpleData>
 		<SimpleData name="Id_">19</SimpleData>
+		<SimpleData name="area">1.986</SimpleData>
 	</SchemaData></ExtendedData>
       <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.503472,-34.593963,0 -58.514423,-34.581484,0 -58.512368,-34.581558,0 -58.506942,-34.5811,0 -58.501902,-34.58073,0 -58.498844,-34.580241,0 -58.495732,-34.57919,0 -58.495196,-34.579455,0 -58.488576,-34.584814,0 -58.503472,-34.593963,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.22">
+  <Placemark id="recorridos_flash_norte.22">
 	<name>Dupla 19 - Límite polígono 2</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Censo Flash - Dupla 19 - Villa Urquiza</SimpleData>
 		<SimpleData name="Id_">19</SimpleData>
+		<SimpleData name="area">1.567</SimpleData>
 	</SchemaData></ExtendedData>
       <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.513797,-34.581159,0 -58.513748,-34.580956,0 -58.513389,-34.580832,0 -58.513883,-34.580337,0 -58.512794,-34.577906,0 -58.509148,-34.570205,0 -58.508869,-34.56952,0 -58.504006,-34.567326,0 -58.500265,-34.571932,0 -58.498492,-34.574252,0 -58.494839,-34.578755,0 -58.498795,-34.579986,0 -58.499154,-34.580066,0 -58.501595,-34.580534,0 -58.507213,-34.580777,0 -58.512493,-34.581132,0 -58.513797,-34.581159,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
-  <Placemark id="recorridos_consultora.23">
-	<name>Dupla 20 - Límite polígono 1</name>
-	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
-		<SimpleData name="layer">Censo Flash - Dupla 20 - Caballito</SimpleData>
-		<SimpleData name="Id_">20</SimpleData>
-	</SchemaData></ExtendedData>
-      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.427755,-34.622044,0 -58.434252,-34.622983,0 -58.436762,-34.623212,0 -58.44071,-34.622841,0 -58.442534,-34.622753,0 -58.443736,-34.623088,0 -58.444787,-34.620775,0 -58.445646,-34.617279,0 -58.443157,-34.616361,0 -58.44056,-34.614718,0 -58.439359,-34.614595,0 -58.438028,-34.614206,0 -58.43029,-34.610885,0 -58.429988,-34.615419,0 -58.429179,-34.615227,0 -58.427755,-34.622044,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
-  </Placemark>
-  <Placemark id="recorridos_consultora.24">
+  <Placemark id="recorridos_flash_norte.23">
 	<name>Dupla 01 - Límite polígono 1</name>
 	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
-	<ExtendedData><SchemaData schemaUrl="#recorridos_consultora">
+	<ExtendedData><SchemaData schemaUrl="#recorridos_flash_norte">
 		<SimpleData name="layer">Dupla 1 Retiro</SimpleData>
 		<SimpleData name="Id_">1</SimpleData>
+		<SimpleData name="area">1.268</SimpleData>
 	</SchemaData></ExtendedData>
-      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.369411,-34.603204,0 -58.3813288095417,-34.6039024926107,0 -58.381368,-34.60172,0 -58.3815546588883,-34.5992263596811,0 -58.3818500003416,-34.5948502904037,0 -58.3817631352083,-34.5921759123543,0 -58.3815546588883,-34.5901736478343,0 -58.3815025398084,-34.5896158655532,0 -58.3812766904617,-34.5893870307136,0 -58.380893,-34.589373,0 -58.380153,-34.589532,0 -58.379611,-34.588468,0 -58.378565,-34.588915,0 -58.377674,-34.589136,0 -58.375389,-34.592298,0 -58.373447,-34.59341,0 -58.372235,-34.594973,0 -58.371663,-34.596643,0 -58.370709,-34.598232,0 -58.370108,-34.600158,0 -58.369411,-34.603204,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.3703521367797,-34.6030115780987,0 -58.3812639225599,-34.6036256997272,0 -58.381368,-34.60172,0 -58.3815546588883,-34.5992263596811,0 -58.3818500003416,-34.5948502904037,0 -58.3817631352083,-34.5921759123543,0 -58.3815546588883,-34.5901736478343,0 -58.3815025398084,-34.5896158655532,0 -58.3812766904617,-34.5893870307136,0 -58.380893,-34.589373,0 -58.380153,-34.589532,0 -58.379611,-34.588468,0 -58.378565,-34.588915,0 -58.377674,-34.589136,0 -58.375389,-34.592298,0 -58.3737821473146,-34.5934238683045,0 -58.372756252925,-34.5946266577312,0 -58.3718547093705,-34.5966056775647,0 -58.3712018674862,-34.5983799312103,0 -58.3706526512978,-34.6005379866673,0 -58.3703521367797,-34.6030115780987,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
   </Placemark>
 </Folder>
 </Document></kml>

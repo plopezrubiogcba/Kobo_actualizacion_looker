@@ -4,7 +4,7 @@ import type { ControlData, ControlEstado, Turno } from '@/modules/flash/types'
 
 const TURNOS: Turno[] = ['TM', 'TT', 'TN']
 const TURNO_LABEL: Record<Turno, string> = { TM: 'Mañana', TT: 'Tarde', TN: 'Noche' }
-const DUPLE = Array.from({ length: 20 }, (_, i) => i + 1)
+const DUPLE = [...Array.from({ length: 19 }, (_, i) => i + 1), ...Array.from({ length: 13 }, (_, i) => i + 21)]
 
 const ESTADO_BADGE: Record<ControlEstado, { cls: string; label: string }> = {
   ok:           { cls: 'bg-emerald-100 text-emerald-700 border-emerald-300', label: 'Cumplido' },

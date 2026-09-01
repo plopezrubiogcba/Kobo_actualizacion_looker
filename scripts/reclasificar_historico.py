@@ -16,7 +16,7 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 PROJ_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-KML_PATH = os.path.join(PROJ_ROOT, "Zonas flash.kml")
+KML_PATH = os.path.join(PROJ_ROOT, "assets", "mapas flash fronteras nuevos.kml")
 
 
 def main():
@@ -26,7 +26,7 @@ def main():
 
     with engine.connect() as conn:
         df = pd.read_sql(
-            text(f'SELECT "_uuid", latitude::float, longitude::float, "tipo_flash" FROM "{NEON_TABLE_NAME}" WHERE latitude IS NOT NULL AND longitude IS NOT NULL'),
+            text(f'SELECT "_uuid", latitude::float, longitude::float FROM "{NEON_TABLE_NAME}" WHERE latitude IS NOT NULL AND longitude IS NOT NULL'),
             conn
         )
     print(f"   Registros a reclasificar: {len(df)}")
@@ -39,8 +39,7 @@ def main():
         crs="EPSG:4326"
     )
 
-    declared_flash = df['tipo_flash'] if 'tipo_flash' in df.columns else None
-    localizacion = clasificar_localizacion(puntos_gdf, zonas_dict, declared_flash)
+    localizacion = clasificar_localizacion(puntos_gdf, zonas_dict)
     df['Localizacion'] = localizacion.values
 
     print("\n📊 Distribución por zona:")

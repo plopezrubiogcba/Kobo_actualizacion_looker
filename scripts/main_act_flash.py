@@ -21,10 +21,16 @@ from dotenv import load_dotenv
 # --- 1. CONFIGURACIÓN GLOBAL ---
 load_dotenv()
 
-TOKEN_KOBO = os.environ.get("KOBO_TOKEN", "b6a9c8897db4c180b9eff560e890edfb394313db")
-UID_KOBO_1 = "aH2SygyBTRCkqCgBtu4m3R"  # Flash 1
-UID_KOBO_2 = "aPou2eJThDtn45mdmfrbaA"   # Flash 2
-UIDS_KOBO = [UID_KOBO_1, UID_KOBO_2]
+# Cada form tiene su propio token (REST service de KoboToolbox).
+# Flash Norte (ex Flash 1), Flash Centro (ex Complementario), Flash Sur (nuevo).
+KOBO_FORMS = [
+    {"uid": "aH2SygyBTRCkqCgBtu4m3R", "token_env": "KOBO_TOKEN_NORTE",
+     "token_default": "f5fb169757f2cd453959498f35b1695997087d6e"},  # Flash Norte
+    {"uid": "aPou2eJThDtn45mdmfrbaA", "token_env": "KOBO_TOKEN_CENTRO",
+     "token_default": "3984886d4434898f762f0fd38ae93d0a834893ac"},  # Flash Centro
+    {"uid": "aBVmBrbhxVuujtx2254vGT", "token_env": "KOBO_TOKEN_SUR",
+     "token_default": "6ebb967ed301b1615bdd6b87e6e84c971fdb6269"},  # Flash Sur
+]
 
 # GOOGLE SHEETS
 NOMBRE_SPREADSHEET = "puntos flash"
@@ -38,27 +44,27 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
 NEON_TABLE_NAME = 'kobo_flash_consolidado'
 
 # Mapeo tipo_flash (código Kobo) → zona Flash
-FLASH_TO_LOCALIZACION = {
-    '1': 'C2',   # Flash Recoleta   → Zona C2
-    '2': 'C14',  # Flash Palermo    → Zona C14
-    '3': 'C13',  # Flash Belgrano   → Zona C13
-    '5': 'C12',  # Flash C12        → Zona C12
-    '6': 'C1A',  # Flash C1/1A      → Zona C1A
-    '7': 'C6',   # Flash Caballito  → Zona C6
-    # '4' = Otro → solo GPS
-}
+# NOTA: desde septiembre los formularios ya NO incluyen el campo
+# 'geo_ref/relevamiento_flash' (tipo_flash). La clasificación es solo por GPS.
 
 # Prioridad de asignación cuando un punto cae en más de un polígono
-ZONE_PRIORITY = ['Frontera', 'C2', 'C14', 'C13', 'C12', 'C1A', 'C6']
+ZONE_PRIORITY = [
+    'Frontera Norte', 'Frontera Sur-este',
+    'C2', 'C14', 'C13', 'C12', 'C1A',
+    'C15 Centro', 'C5 Centro', 'C3 Centro', 'C6 Centro',
+]
 
-# Recorridos por dupla (KML con polígonos)
-RECORRIDOS_KML = 'recorridos_consultora.kml'
+# Recorridos por dupla (KML con polígonos) — norte (duplas 1-19) + centro (duplas 21-33)
+RECORRIDOS_KML = [
+    'assets/recorridos flash norte.kml',
+    'assets/recorridos flash centro.kml',
+]
 DUPLA_COL = 'dupla'
 
-# Columna del KML que lleva el código de zona
-ZONE_COL = 'Mapa Flash'
-# El KML usa 'Control'; el resto del stack (DB, dashboard) usa 'C6'
-ZONE_RENAME = {'Control': 'C6'}
+# Columna del KML que lleva el código de zona (mapa nuevo: columna 'Tablero' = nombre final)
+ZONE_COL = 'Tablero'
+# Ya no hace falta renombrar: 'Tablero' viene con el nombre final
+ZONE_RENAME = {}
 
 CRS_METRICO = "EPSG:22185"  # Gauss-Kruger Faja 5, métrico para Buenos Aires
 SNAP_BORDE_M = 100          # Otro a <=100m de un borde → zona priorizada más cercana
@@ -67,8 +73,8 @@ AR_TZ = 'America/Argentina/Buenos_Aires'
 
 # --- 2. FUNCIONES DE APOYO Y EXTRACCIÓN ---
 
-def obtener_schema_kobo(uid=UID_KOBO_2):
-    headers = {"Authorization": f"Token {TOKEN_KOBO}"}
+def obtener_schema_kobo(uid, token):
+    headers = {"Authorization": f"Token {token}"}
     url = f"https://kf.kobotoolbox.org/api/v2/assets/{uid}/"
     resp = requests.get(url, headers=headers)
     resp.raise_for_status()
@@ -104,11 +110,11 @@ def expandir_select_multiple(df, schema, col_name):
         )
     return df
 
-def extraer_kobo_completo(since_timestamp=None, uid=None):
+def extraer_kobo_completo(since_timestamp=None, uid=None, token=None):
     url_kobo = f"https://kf.kobotoolbox.org/api/v2/assets/{uid}/data.json"
     print(f"\n📋 EXTRACCIÓN DE KOBO — form: {uid}")
-    schema = obtener_schema_kobo(uid)
-    headers = {"Authorization": f"Token {TOKEN_KOBO}"}
+    schema = obtener_schema_kobo(uid, token)
+    headers = {"Authorization": f"Token {token}"}
 
     params = {"limit": 1000}
     if since_timestamp:
@@ -144,9 +150,11 @@ def extraer_kobo_completo(since_timestamp=None, uid=None):
 
 def extraer_todos_los_forms(since_timestamp=None):
     dfs = []
-    for uid in UIDS_KOBO:
+    for form in KOBO_FORMS:
+        uid = form['uid']
+        token = os.environ.get(form['token_env'], form['token_default'])
         try:
-            df = extraer_kobo_completo(since_timestamp=since_timestamp, uid=uid)
+            df = extraer_kobo_completo(since_timestamp=since_timestamp, uid=uid, token=token)
             if not df.empty:
                 dfs.append(df)
         except Exception as e:
@@ -200,26 +208,42 @@ def cargar_zonas_flash(ruta):
     return {z: sub.copy() for z, sub in gdf.groupby(ZONE_COL)}
 
 
-def cargar_recorridos(ruta):
-    """Lee KML de recorridos por dupla y disuelve polígonos (uno por dupla)."""
-    gdf = gpd.read_file(ruta)
-    gdf = gdf.set_crs("EPSG:4326") if gdf.crs is None else gdf.to_crs("EPSG:4326")
+def cargar_recorridos(rutas):
+    """Lee KML(s) de recorridos por dupla y disuelve polígonos (uno por dupla).
+    Acepta una ruta o una lista de rutas (norte + centro)."""
+    if isinstance(rutas, str):
+        rutas = [rutas]
 
     def extraer_numero_dupla(row):
-        v = row.get('Id_')
-        if v is not None and str(v).strip():
-            try:
-                return int(v)
-            except (ValueError, TypeError):
-                pass
+        # Campo que trae el nro de dupla: 'Id_' (norte) o 'id2'/'id' (centro)
+        for col in ('Id_', 'id2', 'id'):
+            v = row.get(col)
+            if v is not None and str(v).strip():
+                try:
+                    return int(float(v))
+                except (ValueError, TypeError):
+                    pass
         texto = f"{row.get('Name', '')} {row.get('layer', '')}"
         m = re.search(r'Dupla\s+(\d+)', str(texto))
         return int(m.group(1)) if m else None
 
-    gdf[DUPLA_COL] = gdf.apply(extraer_numero_dupla, axis=1)
+    frames = []
+    for ruta in rutas:
+        if not os.path.exists(ruta):
+            print(f"  ⚠️ No se encontró '{ruta}'. Saltando.")
+            continue
+        gdf = gpd.read_file(ruta)
+        gdf = gdf.set_crs("EPSG:4326") if gdf.crs is None else gdf.to_crs("EPSG:4326")
+        gdf[DUPLA_COL] = gdf.apply(extraer_numero_dupla, axis=1)
+        frames.append(gdf[['geometry', DUPLA_COL]])
+
+    if not frames:
+        return gpd.GeoDataFrame(columns=['geometry', DUPLA_COL], crs="EPSG:4326")
+
+    gdf = gpd.pd.concat(frames, ignore_index=True)
     gdf = gdf.dropna(subset=[DUPLA_COL])
     gdf[DUPLA_COL] = gdf[DUPLA_COL].astype(int)
-    gdf = gdf[['geometry', DUPLA_COL]].dissolve(by=DUPLA_COL, aggfunc='first').reset_index()
+    gdf = gdf.dissolve(by=DUPLA_COL, aggfunc='first').reset_index()
     return gdf
 
 
@@ -251,8 +275,10 @@ def ensure_dupla_column(engine):
         conn.commit()
 
 
-def clasificar_localizacion(puntos_gdf, zonas_dict, declared_flash=None):
-    """Asigna zona Flash a cada punto según prioridad. Zonas: C2>C14>C13>C12>C1A>C6."""
+def clasificar_localizacion(puntos_gdf, zonas_dict):
+    """Asigna zona Flash a cada punto según prioridad GPS.
+    Prioridad: Frontera Norte > Frontera Sur-este > C2 > C14 > C13 > C12 > C1A
+    > C15 Centro > C5 Centro > C3 Centro > C6 Centro."""
     puntos_gdf = puntos_gdf.to_crs("EPSG:4326")
     puntos_gdf = puntos_gdf.copy()
     puntos_gdf['Localizacion'] = None
@@ -270,37 +296,6 @@ def clasificar_localizacion(puntos_gdf, zonas_dict, declared_flash=None):
             puntos_gdf.loc[joined.index, 'Localizacion'] = zona_code
 
     puntos_gdf['Localizacion'] = puntos_gdf['Localizacion'].fillna('Otro')
-
-    # --- Override por flash declarado (buffer 100m, CRS métrico) ---
-    if declared_flash is not None and declared_flash.notna().any():
-        puntos_metric = puntos_gdf.to_crs(CRS_METRICO)
-        zonas_metric = {z: gdf.to_crs(CRS_METRICO) for z, gdf in zonas_dict.items()}
-
-        overrides = 0
-        for idx, flash_val in declared_flash.items():
-            flash_str = str(flash_val) if pd.notna(flash_val) else None
-            if flash_str not in FLASH_TO_LOCALIZACION:
-                continue  # '4' (Otro) o nulo → mantener GPS
-
-            declared_zone = FLASH_TO_LOCALIZACION[flash_str]
-            gps_zone = puntos_gdf.loc[idx, 'Localizacion']
-
-            if gps_zone == declared_zone:
-                continue  # coinciden, nada que hacer
-
-            if declared_zone not in zonas_metric:
-                continue
-
-            zone_polygon = zonas_metric[declared_zone].union_all() \
-                if hasattr(zonas_metric[declared_zone], 'union_all') \
-                else zonas_metric[declared_zone].unary_union
-
-            if zone_polygon.buffer(100).contains(puntos_metric.loc[idx, 'geometry']):
-                puntos_gdf.loc[idx, 'Localizacion'] = declared_zone
-                overrides += 1
-
-        if overrides:
-            print(f"  📍 Flash declarado: {overrides} punto(s) reasignado(s) por proximidad al borde (<100m)")
 
     # --- Snap de borde: Otro a <=SNAP_BORDE_M → zona priorizada más cercana ---
     otro_mask = puntos_gdf['Localizacion'] == 'Otro'
@@ -419,19 +414,18 @@ def main():
     
     # Cargar capas Geo (KML de zonas Flash)
     PROJ_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    ruta_kml = os.path.join(PROJ_ROOT, "Zonas flash.kml")
+    ruta_kml = os.path.join(PROJ_ROOT, "assets", "mapas flash fronteras nuevos.kml")
 
     if os.path.exists(ruta_kml):
         zonas_dict = cargar_zonas_flash(ruta_kml)
         puntos_gdf = gpd.GeoDataFrame(df_nuevos, geometry=gpd.points_from_xy(df_nuevos.longitude, df_nuevos.latitude), crs="EPSG:4326")
-        declared_flash = df_nuevos.get('geo_ref/relevamiento_flash')
-        df_nuevos['Localizacion'] = clasificar_localizacion(puntos_gdf, zonas_dict, declared_flash)
+        df_nuevos['Localizacion'] = clasificar_localizacion(puntos_gdf, zonas_dict)
     else:
-        print("⚠️ No se encontró 'Zonas flash.kml'. Saltando clasificación.")
+        print("⚠️ No se encontró el KML de zonas. Saltando clasificación.")
 
     # Asignar dupla según polígonos de recorridos (KML)
-    ruta_recorridos = os.path.join(PROJ_ROOT, RECORRIDOS_KML)
-    if os.path.exists(ruta_recorridos):
+    ruta_recorridos = [os.path.join(PROJ_ROOT, r) for r in RECORRIDOS_KML]
+    if any(os.path.exists(r) for r in ruta_recorridos):
         try:
             recorridos_gdf = cargar_recorridos(ruta_recorridos)
             df_nuevos[DUPLA_COL] = asignar_dupla(puntos_gdf, recorridos_gdf)
@@ -441,7 +435,6 @@ def main():
     else:
         print(f"⚠️ No se encontró '{RECORRIDOS_KML}'. Saltando asignación de dupla.")
         df_nuevos[DUPLA_COL] = None
-
     # 5. Formateo y Subida
     df_nuevos['hora_start'] = df_nuevos['start'].dt.strftime('%H:%M:%S')
     # Mantenemos el timestamp completo para 'start' para evitar desfasajes en enriquecimiento SQL
@@ -453,8 +446,7 @@ def main():
         'datos_per/cant_pers': 'Cantidad de personas en situación de calle observadas',
         'caracteristicas_puntos/caracteristicas_observada': 'Características observables del punto',
         'caracteristicas_puntos/NNyA_observa': 'Se observan niños/as en el punto',
-        'geo_ref/relevamiento_flash': 'tipo_flash',
-        'geo_ref/relevamiento_flash_otro': 'tipo_flash_otro'
+        'geo_ref/dni_oper': 'dni_oper',
     }
     df_nuevos.rename(columns=rename_map, inplace=True)
     
@@ -467,7 +459,7 @@ def main():
         'Características observables del punto', 'Se observan niños/as en el punto',
         'datos_per/sit_calle', 'fecha_reporte', 'inicio_semana_lunes',
         '_id', '_uuid', '_submission_time', '_status', '_submitted_by', 'Localizacion',
-        'tipo_flash', 'tipo_flash_otro', DUPLA_COL
+        'dni_oper', DUPLA_COL
     ]
     # Usar las que existan en el df para evitar reindex con NaNs innecesarios si no vienen
     cols_presentes = [c for c in columnas_finales if c in df_nuevos.columns]

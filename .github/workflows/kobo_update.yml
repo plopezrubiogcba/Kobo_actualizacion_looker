@@ -36,7 +36,9 @@ jobs:
 
       - name: Ejecutar Script Principal
         env:
-          KOBO_TOKEN: ${{ secrets.KOBO_TOKEN }}
+          KOBO_TOKEN_NORTE: ${{ secrets.KOBO_TOKEN_NORTE }}
+          KOBO_TOKEN_CENTRO: ${{ secrets.KOBO_TOKEN_CENTRO }}
+          KOBO_TOKEN_SUR: ${{ secrets.KOBO_TOKEN_SUR }}
           GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python scripts/main_act_flash.py

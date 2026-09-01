@@ -10,25 +10,33 @@ import type { FlashPoint } from './types'
 const CABA_CENTER: [number, number] = [-34.615, -58.443]
 
 const ZONA_COLOR: Record<string, string> = {
-  Frontera: '#ef4444',
-  C2:       '#f97316',
-  C14:      '#3b82f6',
-  C13:      '#22c55e',
-  C12:      '#a855f7',
-  C1A:      '#eab308',
-  C6:       '#ec4899',
-  Otro:     '#94a3b8',
+  'Frontera Norte': '#ef4444',
+  'Frontera Sur-este': '#dc2626',
+  C2: '#f97316',
+  C14: '#3b82f6',
+  C13: '#22c55e',
+  C12: '#a855f7',
+  C1A: '#eab308',
+  'C15 Centro': '#06b6d4',
+  'C5 Centro': '#ec4899',
+  'C3 Centro': '#84cc16',
+  'C6 Centro': '#f59e0b',
+  Otro: '#94a3b8',
 }
 
 const ZONA_LABEL: Record<string, string> = {
-  Frontera: 'Zona de Frontera',
-  C2:       'C2 — Recoleta',
-  C14:      'C14 — Palermo',
-  C13:      'C13 — Belgrano',
-  C12:      'C12',
-  C1A:      'C1A — Retiro/Recoleta N',
-  C6:       'C6 — Caballito',
-  Otro:     'Sin zona',
+  'Frontera Norte': 'Zona de Frontera Norte',
+  'Frontera Sur-este': 'Zona de Frontera Sur',
+  C2: 'C2 — Recoleta',
+  C14: 'C14 — Palermo',
+  C13: 'C13 — Belgrano',
+  C12: 'C12',
+  C1A: 'C1A — Retiro/Recoleta N',
+  'C15 Centro': 'C15 Centro',
+  'C5 Centro': 'C5 Centro',
+  'C3 Centro': 'C3 Centro',
+  'C6 Centro': 'C6 Centro — Caballito',
+  Otro: 'Sin zona',
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

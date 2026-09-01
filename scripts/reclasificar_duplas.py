@@ -19,7 +19,7 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 PROJ_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RECORRIDOS_KML_PATH = os.path.join(PROJ_ROOT, RECORRIDOS_KML)
+RECORRIDOS_KML_PATHS = [os.path.join(PROJ_ROOT, r) for r in RECORRIDOS_KML]
 
 
 def main():
@@ -38,7 +38,7 @@ def main():
         print("   Nada que procesar.")
         return
 
-    recorridos_gdf = cargar_recorridos(RECORRIDOS_KML_PATH)
+    recorridos_gdf = cargar_recorridos(RECORRIDOS_KML_PATHS)
 
     puntos_gdf = gpd.GeoDataFrame(
         df,
