@@ -269,9 +269,14 @@ def asignar_dupla(puntos_gdf, recorridos_gdf):
     return puntos_gdf[DUPLA_COL].astype('Int64')
 
 
-def ensure_dupla_column(engine):
+def ensure_missing_columns(engine):
+    cols = [
+        (DUPLA_COL, 'integer'),
+        ('dni_oper', 'bigint'),
+    ]
     with engine.connect() as conn:
-        conn.execute(text(f'ALTER TABLE "{NEON_TABLE_NAME}" ADD COLUMN IF NOT EXISTS "{DUPLA_COL}" integer'))
+        for name, typ in cols:
+            conn.execute(text(f'ALTER TABLE "{NEON_TABLE_NAME}" ADD COLUMN IF NOT EXISTS "{name}" {typ}'))
         conn.commit()
 
 
@@ -466,7 +471,7 @@ def main():
     df_final = df_nuevos[cols_presentes]
 
     try:
-        ensure_dupla_column(engine)
+        ensure_missing_columns(engine)
         subir_a_neon(df_final, engine)
         print("✅ Subida a Neon exitosa.")
         

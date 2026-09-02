@@ -8,7 +8,7 @@ import geopandas as gpd
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 from main_act_flash import (
-    cargar_recorridos, asignar_dupla, ensure_dupla_column,
+    cargar_recorridos, asignar_dupla, ensure_missing_columns,
     NEON_TABLE_NAME, RECORRIDOS_KML, DUPLA_COL,
 )
 
@@ -26,7 +26,7 @@ def main():
     print("🗺️  Asignación de dupla a histórico (KML de recorridos)...")
 
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-    ensure_dupla_column(engine)
+    ensure_missing_columns(engine)
 
     with engine.connect() as conn:
         df = pd.read_sql(
