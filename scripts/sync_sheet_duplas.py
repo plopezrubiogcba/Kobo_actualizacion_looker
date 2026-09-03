@@ -5,6 +5,7 @@ sys.stderr.reconfigure(encoding='utf-8')
 import os
 import re
 import tempfile
+import time
 from datetime import datetime
 import pandas as pd
 import gspread
@@ -111,6 +112,20 @@ def parse_foto_url(valor):
     return texto
 
 
+def reintentar(fn, intentos=5, espera_base=10):
+    """Reintenta una llamada a la API de Google ante errores transitorios (5xx)."""
+    for i in range(intentos):
+        try:
+            return fn()
+        except gspread.exceptions.APIError as e:
+            codigo = getattr(e.response, 'status_code', None) or getattr(e, 'code', None)
+            if not codigo or codigo < 500 or i == intentos - 1:
+                raise
+            espera = espera_base * (2 ** i)
+            print(f"   ⚠️  Error {codigo} de la API de Google (intento {i + 1}/{intentos}). Reintentando en {espera}s...")
+            time.sleep(espera)
+
+
 def main():
     if not DATABASE_URL:
         print("❌ ERROR: DATABASE_URL no configurada.")
@@ -132,9 +147,9 @@ def main():
 
     creds = ServiceAccountCredentials.from_json_keyfile_name(ruta_creds, SCOPES)
     client = gspread.authorize(creds)
-    sh = client.open_by_key(sheet_id)
+    sh = reintentar(lambda: client.open_by_key(sheet_id))
     ws = sh.sheet1
-    records = ws.get_all_records()
+    records = reintentar(ws.get_all_records)
     print(f"   Hoja '{ws.title}': {len(records)} filas con datos")
 
     filas = []
