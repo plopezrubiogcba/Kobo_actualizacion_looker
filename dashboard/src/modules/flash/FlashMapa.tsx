@@ -135,45 +135,53 @@ export const FlashMapa = () => {
 
   const makeLabelIcon = (s: ZoneStat) => {
     const dim = s.puntos === 0
-    const opacity = dim ? 0.45 : 1
+    const opacity = dim ? 0.55 : 1
+    const nombre = ZONA_LABEL[s.zona] ?? s.zona
     return L.divIcon({
       className: '',
       html: `
         <div style="
           transform: translate(-50%, -100%);
-          margin-bottom: 14px;
+          margin-bottom: 16px;
           opacity: ${opacity};
-          filter: drop-shadow(0 3px 6px rgba(0,0,0,0.5));
+          filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6));
         ">
           <div style="
             background: rgba(15,23,42,0.95);
-            border-radius: 8px;
+            border-radius: 10px;
             overflow: hidden;
-            font: 600 11px system-ui, sans-serif;
+            font-family: system-ui, sans-serif;
             white-space: nowrap;
-            border: 1px solid ${s.color}66;
+            border: 1.5px solid ${s.color};
           ">
             <div style="
               background: ${s.color};
-              color: #0f172a;
-              font-size: 10.5px;
+              color: #fff;
+              font-size: 12px;
               font-weight: 800;
-              letter-spacing: 0.6px;
+              letter-spacing: 0.5px;
               text-transform: uppercase;
-              padding: 3px 10px;
-            ">${s.zona}</div>
+              padding: 5px 12px;
+              text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+            ">${nombre}</div>
             <div style="
-              color: #e2e8f0;
-              padding: 3px 10px 4px;
+              color: #f1f5f9;
+              font-size: 11.5px;
+              font-weight: 600;
+              padding: 4px 12px 5px;
               text-align: center;
-            ">${s.puntos.toLocaleString('es-AR')} pts · ${s.personas.toLocaleString('es-AR')} PSC</div>
+            ">
+              <span style="color:#93c5fd">${s.puntos.toLocaleString('es-AR')} pts</span>
+              <span style="opacity:0.5; margin: 0 4px;">·</span>
+              <span style="color:#86efac">${s.personas.toLocaleString('es-AR')} PSC</span>
+            </div>
           </div>
           <div style="
             width: 0; height: 0;
             margin: 0 auto;
-            border-left: 7px solid transparent;
-            border-right: 7px solid transparent;
-            border-top: 8px solid ${s.color};
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 9px solid ${s.color};
           "></div>
         </div>
       `,
