@@ -11,8 +11,8 @@ const CABA_CENTER: [number, number] = [-34.615, -58.443]
 
 const ZONA_COLOR: Record<string, string> = {
   'Frontera Norte': '#ef4444',
-  'Frontera Este': '#dc2626',
-  'Frontera Sur': '#b91c1c',
+  'Frontera Este': '#6366f1',
+  'Frontera Sur': '#14b8a6',
   C2: '#f97316',
   C14: '#3b82f6',
   C13: '#22c55e',
