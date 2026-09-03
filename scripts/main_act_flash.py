@@ -54,10 +54,10 @@ ZONE_PRIORITY = [
     'C15 Centro', 'C5 Centro', 'C3 Centro', 'C6 Centro',
 ]
 
-# Recorridos por dupla (KML con polígonos) — norte (duplas 1-19) + centro (duplas 21-33)
+# Recorridos por dupla (KML consolidado, una fila por dupla): duplas 1-19 (Norte) + 21-33 (Centro).
+# Dupla 20 eliminada. Reemplaza los viejos KMLs norte+centro (que además traían IDs rotados 25-28).
 RECORRIDOS_KML = [
-    'assets/recorridos flash norte.kml',
-    'assets/recorridos flash centro.kml',
+    'assets/recorridos_totales_consultora.kml',
 ]
 DUPLA_COL = 'dupla'
 
@@ -215,16 +215,25 @@ def cargar_recorridos(rutas):
         rutas = [rutas]
 
     def extraer_numero_dupla(row):
-        # Campo que trae el nro de dupla: 'Id_' (norte) o 'id2'/'id' (centro)
-        for col in ('Id_', 'id2', 'id'):
-            v = row.get(col)
-            if v is not None and str(v).strip():
-                try:
-                    return int(float(v))
-                except (ValueError, TypeError):
-                    pass
-        texto = f"{row.get('Name', '')} {row.get('layer', '')}"
-        m = re.search(r'Dupla\s+(\d+)', str(texto))
+        # Nro de dupla en columna de ID (varía según el KML):
+        #   'Id_' (viejo norte), 'id2' (viejo centro; renombrado por colisión con 'id'),
+        #   'ID'/'ID2' (nuevo consolidado; geopandas renombra 'ID' a 'ID2').
+        # El 'id' del Placemark (ej. "recorridos_totales_consultora.1") no es numérico y se descarta.
+        for col, v in row.items():
+            if col.lower() not in ('id', 'id2', 'id_', '_id'):
+                continue
+            if v is None or not str(v).strip():
+                continue
+            try:
+                return int(float(v))
+            except (ValueError, TypeError):
+                continue
+        # Fallback: nombre prefijado con el número (ej. 'Mapas fila' = "21. Microcentro") o 'Dupla NN'.
+        texto = ' '.join(str(row.get(c) or '') for c in ('Mapas fila', 'Mapas flas', 'Name', 'layer'))
+        m = re.search(r'Dupla\s+(\d+)', texto)
+        if m:
+            return int(m.group(1))
+        m = re.search(r'^\s*(\d+)\.', texto)
         return int(m.group(1)) if m else None
 
     frames = []

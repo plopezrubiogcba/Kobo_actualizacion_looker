@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document id="root_doc">
+<Schema name="recorridos_totales_consultora" id="recorridos_totales_consultora">
+	<SimpleField name="Mapas fila" type="string"></SimpleField>
+	<SimpleField name="area" type="float"></SimpleField>
+	<SimpleField name="layer" type="string"></SimpleField>
+	<SimpleField name="ID" type="float"></SimpleField>
+</Schema>
+<Folder><name>recorridos_totales_consultora</name>
+  <Placemark id="recorridos_totales_consultora.1">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">21. Microcentro</SimpleData>
+		<SimpleData name="area">1.559</SimpleData>
+		<SimpleData name="layer">Centro</SimpleData>
+		<SimpleData name="ID">21</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.3704277514552,-34.6030805203188,0 -58.3699087306258,-34.6063595738781,0 -58.370525944585,-34.6074910482258,0 -58.3712273240842,-34.607883596948,0 -58.3733875729416,-34.6080452341177,0 -58.3732332694518,-34.6091074134049,0 -58.369726371956,-34.6087841428864,0 -58.3696842891861,-34.6098463127208,0 -58.3692915166665,-34.6171310461184,0 -58.3805837266029,-34.617638991007,0 -58.3812570509221,-34.6036116434154,0 -58.3704277514552,-34.6030805203188,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.2">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">22. Macrocentro</SimpleData>
+		<SimpleData name="area">1.696</SimpleData>
+		<SimpleData name="layer">Centro</SimpleData>
+		<SimpleData name="ID">22</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.3809764991224,-34.6175928143274,0 -58.3933806738816,-34.6182172173325,0 -58.3933254540404,-34.6139869290812,0 -58.3937282788904,-34.6044965140428,0 -58.3941183582746,-34.6044844730718,0 -58.3817059338016,-34.6039233879987,0 -58.3809764991224,-34.6175928143274,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.3">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">23. Almagro Norte</SimpleData>
+		<SimpleData name="area">2.851</SimpleData>
+		<SimpleData name="layer">Centro</SimpleData>
+		<SimpleData name="ID">23</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.4055579313477,-34.6045963507175,0 -58.4061014985987,-34.6074298304569,0 -58.4060810002397,-34.6087810279692,0 -58.4067505284216,-34.6088412995576,0 -58.4068074080285,-34.6078998019473,0 -58.4155489680847,-34.6085069568185,0 -58.4220405907424,-34.6098426819067,0 -58.4259441706549,-34.6110186515205,0 -58.4373607148311,-34.6161935872119,0 -58.4399250462922,-34.6089081102797,0 -58.4399601741204,-34.6058144802762,0 -58.443092468331,-34.6027554547203,0 -58.4402888190697,-34.6010504879548,0 -58.4386568441265,-34.6000171577286,0 -58.434346600146,-34.6013540549606,0 -58.432551489724,-34.6019385966068,0 -58.4212150884913,-34.6031880593686,0 -58.4167342580577,-34.6036565581579,0 -58.412967938423,-34.604184862211,0 -58.4089369563903,-34.6040452664936,0 -58.4055579313477,-34.6045963507175,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.4">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">24. Almagro Sur</SimpleData>
+		<SimpleData name="area">2.850</SimpleData>
+		<SimpleData name="layer">Centro</SimpleData>
+		<SimpleData name="ID">24</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.4093028624898,-34.6089604078166,0 -58.409033008326,-34.609093202736,0 -58.4081418407397,-34.6196187921164,0 -58.4088787093932,-34.6199265733168,0 -58.4344521306533,-34.6231228701338,0 -58.4352635834855,-34.6191769789404,0 -58.4371077944678,-34.6167486449553,0 -58.4209893904825,-34.609736430935,0 -58.4161575577088,-34.6089471413238,0 -58.4093028624898,-34.6089604078166,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.5">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">25. Boedo</SimpleData>
+		<SimpleData name="area">3.560</SimpleData>
+		<SimpleData name="layer">Centro</SimpleData>
+		<SimpleData name="ID">25</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.4118236619004,-34.6201027625654,0 -58.409463071843,-34.6198295815862,0 -58.4070655975661,-34.6194653388818,0 -58.405405807682,-34.6291779305731,0 -58.4116023565825,-34.6302401763167,0 -58.4115839144727,-34.6331385205165,0 -58.4102560825654,-34.6356270703346,0 -58.4114363775941,-34.6381617882262,0 -58.4237372648461,-34.6402246214662,0 -58.4269277498455,-34.6270685737074,0 -58.4333640461737,-34.6278425166276,0 -58.4344521306533,-34.6231835746868,0 -58.4125244620737,-34.6202848827187,0 -58.4118236619004,-34.6201027625654,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.6">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">26. Caballito Sur</SimpleData>
+		<SimpleData name="area">2.833</SimpleData>
+		<SimpleData name="layer">Centro</SimpleData>
+		<SimpleData name="ID">26</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.4368864891499,-34.6167486449553,0 -58.4355586572426,-34.6186913178271,0 -58.4334193725032,-34.6279790940406,0 -58.4638336547243,-34.6343643526589,0 -58.4660444832301,-34.6284218769407,0 -58.4546436063224,-34.624287811661,0 -58.4525359366283,-34.6234784247409,0 -58.4368864891499,-34.6167486449553,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.7">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">27. Caballito Norte</SimpleData>
+		<SimpleData name="area">3.372</SimpleData>
+		<SimpleData name="layer">Centro</SimpleData>
+		<SimpleData name="ID">27</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.4668551203488,-34.6273303555367,0 -58.4701713631074,-34.6185370204894,0 -58.4596330805635,-34.6138064272551,0 -58.4466893181965,-34.6077313138669,0 -58.4463900430455,-34.6076492067172,0 -58.4501121164801,-34.6067107774638,0 -58.4462480553743,-34.6076359773159,0 -58.4400304297769,-34.6059879579062,0 -58.4400304297769,-34.6089659340422,0 -58.4374660983157,-34.6164537770927,0 -58.4668551203488,-34.6273303555367,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.8">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">28. Once</SimpleData>
+		<SimpleData name="area">3.488</SimpleData>
+		<SimpleData name="layer">Centro</SimpleData>
+		<SimpleData name="ID">28</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.3934261602529,-34.6181308748205,0 -58.3917586464129,-34.6181904768276,0 -58.391131614679,-34.6271748015944,0 -58.4010534697638,-34.6285709268989,0 -58.405295155023,-34.6291475804949,0 -58.4068811764678,-34.6194653388818,0 -58.4080478831402,-34.6195536347411,0 -58.4089087314506,-34.6090250122982,0 -58.4068705042324,-34.6089090864155,0 -58.4059995815391,-34.6088333258438,0 -58.4058429578267,-34.6088495837623,0 -58.4059875487308,-34.608775205386,0 -58.4060598441829,-34.6076297699758,0 -58.405911723037,-34.6067306591333,0 -58.4056948366807,-34.6054810616786,0 -58.4055321719135,-34.6046479862617,0 -58.4045381094472,-34.6047000537201,0 -58.3941183582746,-34.6044844730718,0 -58.3937534554435,-34.6045379592614,0 -58.3933254540404,-34.6139662088327,0 -58.3934261602529,-34.6181308748205,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.9">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">29. Villa Crespo</SimpleData>
+		<SimpleData name="area">3.797</SimpleData>
+		<SimpleData name="layer">Centro</SimpleData>
+		<SimpleData name="ID">29</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.4738260351254,-34.605349703006,0 -58.4774406886508,-34.6007957601081,0 -58.4641623695782,-34.5964541020375,0 -58.4599583534376,-34.5964911871175,0 -58.4578040205937,-34.5964160436671,0 -58.4549376624877,-34.5958148936168,0 -58.4466054810266,-34.5931142106328,0 -58.4383434158259,-34.5998849415621,0 -58.4431761593538,-34.6027554547203,0 -58.4399540549787,-34.6058208624762,0 -58.4401842052912,-34.6057519781515,0 -58.4461628703909,-34.6075051489002,0 -58.4596655146531,-34.6138696196952,0 -58.4626103260256,-34.6074540223013,0 -58.4583374624656,-34.6044123806843,0 -58.4691048550107,-34.6019190892249,0 -58.4738260351254,-34.605349703006,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.10">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">30. Agronomía</SimpleData>
+		<SimpleData name="area">3.543</SimpleData>
+		<SimpleData name="layer">Centro</SimpleData>
+		<SimpleData name="ID">30</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.478056516757,-34.5787069396258,0 -58.4771799579077,-34.5780232092783,0 -58.474275371295,-34.5812487119537,0 -58.470808171782,-34.5871546170072,0 -58.4718835019108,-34.5884187663016,0 -58.4758013993801,-34.5921382630754,0 -58.4768422582088,-34.5951494236823,0 -58.4767827805614,-34.5952718262764,0 -58.4769017358561,-34.5958593562177,0 -58.4774072958586,-34.5967651234024,0 -58.4785968488056,-34.599580282678,0 -58.4786177410605,-34.5996710782467,0 -58.4831237791001,-34.5976186850651,0 -58.4973628593051,-34.5966295618078,0 -58.5034309905318,-34.5944534491819,0 -58.5030705074886,-34.5941567021343,0 -58.5034309905318,-34.5936126631273,0 -58.4789466010305,-34.5791901557489,0 -58.478056516757,-34.5787069396258,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.11">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">31. Chacarita</SimpleData>
+		<SimpleData name="area">3.426</SimpleData>
+		<SimpleData name="layer">Centro</SimpleData>
+		<SimpleData name="ID">31</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.4771799579077,-34.5781371647268,0 -58.4670522434256,-34.5723181669864,0 -58.4634474129939,-34.5750884825431,0 -58.4609540719454,-34.5776608452621,0 -58.4579200063321,-34.5805546365491,0 -58.4480182375059,-34.5922529903187,0 -58.4503551409299,-34.5942218249436,0 -58.4552662895317,-34.5955443746748,0 -58.4586109321648,-34.5961844524993,0 -58.451881915359,-34.5900515925559,0 -58.460533508395,-34.5854021873715,0 -58.4665509502114,-34.5906533873289,0 -58.4640838679087,-34.5925593561423,0 -58.4652984315039,-34.5962774317434,0 -58.4776749452717,-34.5996781995444,0 -58.4762177429116,-34.5965937628007,0 -58.4758013993801,-34.5951004620242,0 -58.4717866581838,-34.5950759820392,0 -58.4737791593701,-34.5924565209806,0 -58.4757716605564,-34.5923096328682,0 -58.4716052291413,-34.5883521521256,0 -58.4707284660461,-34.587236640511,0 -58.4737198571868,-34.5818596234691,0 -58.4753807055329,-34.5798844620403,0 -58.4761649950296,-34.5791247720694,0 -58.4771799579077,-34.5781371647268,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.12">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">32. San Telmo - Constitución</SimpleData>
+		<SimpleData name="area">2.828</SimpleData>
+		<SimpleData name="layer">Centro</SimpleData>
+		<SimpleData name="ID">32</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.3902772309482,-34.6340374871511,0 -58.3911380943702,-34.6274914104909,0 -58.3916294057787,-34.6181654395623,0 -58.3693893760219,-34.6172220026298,0 -58.368340374927,-34.6214574874057,0 -58.3681811237036,-34.6270597541164,0 -58.3706097048602,-34.6294184901007,0 -58.3708087688894,-34.6266993857693,0 -58.3746706110565,-34.6268304289857,0 -58.3790500196995,-34.6292546911574,0 -58.3796870245931,-34.6279442879689,0 -58.3813591624386,-34.6280098086198,0 -58.3813591624386,-34.6308271476633,0 -58.3832701771193,-34.6322685399445,0 -58.3902772309482,-34.6340374871511,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.13">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">33. Flores- Parque Chacabuco</SimpleData>
+		<SimpleData name="area">2.673</SimpleData>
+		<SimpleData name="layer">Centro</SimpleData>
+		<SimpleData name="ID">33</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.4513499712459,-34.6307971071374,0 -58.4516430117728,-34.6307213895927,0 -58.4266400149203,-34.6270039989457,0 -58.4258338699995,-34.6314559686272,0 -58.4254872133993,-34.6324400527756,0 -58.4314285750841,-34.6333885894265,0 -58.4325830885143,-34.6341390393809,0 -58.4453231863851,-34.6368220233509,0 -58.4494767845143,-34.6389276636456,0 -58.4530052668094,-34.6430004424125,0 -58.4537771223115,-34.643702296156,0 -58.4563949381061,-34.6413766578688,0 -58.4629166548733,-34.6360108978149,0 -58.4641158226134,-34.6344306909595,0 -58.4635113938842,-34.6344800821984,0 -58.4513499712459,-34.6307971071374,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.14">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">2. Recoleta Norte</SimpleData>
+		<SimpleData name="area">1.474</SimpleData>
+		<SimpleData name="layer">Norte</SimpleData>
+		<SimpleData name="ID">2</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.4046544447465,-34.5822361597246,0 -58.40095,-34.578507,0 -58.381681,-34.588683,0 -58.3821105957415,-34.5927622806858,0 -58.388625,-34.592902,0 -58.390917,-34.590954,0 -58.391561522246,-34.5919041792852,0 -58.4046544447465,-34.5822361597246,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.15">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">4. Recoleta Oeste</SimpleData>
+		<SimpleData name="area">2.361</SimpleData>
+		<SimpleData name="layer">Norte</SimpleData>
+		<SimpleData name="ID">4</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.406044,-34.583548,0 -58.401917,-34.583552,0 -58.39755,-34.587527,0 -58.399921,-34.589029,0 -58.4054251975227,-34.6045173773532,0 -58.4090630631468,-34.6043365995637,0 -58.417760046453,-34.6032590037024,0 -58.4143549332272,-34.5941066217269,0 -58.406044,-34.583548,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.16">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">5. Palermo Este</SimpleData>
+		<SimpleData name="area">2.846</SimpleData>
+		<SimpleData name="layer">Norte</SimpleData>
+		<SimpleData name="ID">5</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.406156,-34.583421,0 -58.4058870486194,-34.5833602899879,0 -58.40628,-34.58376,0 -58.412657,-34.591999,0 -58.4148761240271,-34.5957083613736,0 -58.41530152368,-34.596647,0 -58.4176210622397,-34.6033162029184,0 -58.4257863847711,-34.602658409556,0 -58.4322838967429,-34.6019720109272,0 -58.438343,-34.599909,0 -58.422378,-34.589298,0 -58.411005,-34.582466,0 -58.407442,-34.583064,0 -58.406156,-34.583421,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.17">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">6. Palermo Norte</SimpleData>
+		<SimpleData name="area">4.494</SimpleData>
+		<SimpleData name="layer">Norte</SimpleData>
+		<SimpleData name="ID">6</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.4242505316097,-34.570473603106,0 -58.4339798776873,-34.5650788136307,0 -58.4447848298639,-34.5605694563522,0 -58.434715,-34.553605,0 -58.418666,-34.564835,0 -58.410211,-34.571086,0 -58.40184,-34.576559,0 -58.40095,-34.578507,0 -58.40409,-34.58156,0 -58.404715,-34.582809,0 -58.41099,-34.582229,0 -58.425356,-34.578109,0 -58.4242505316097,-34.570473603106,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.18">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">7. Palermo Centro</SimpleData>
+		<SimpleData name="area">2.747</SimpleData>
+		<SimpleData name="layer">Norte</SimpleData>
+		<SimpleData name="ID">7</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.438343,-34.599909,0 -58.442138,-34.59692,0 -58.4455568891131,-34.5936489761552,0 -58.4393373455679,-34.589186799712,0 -58.437209,-34.587934,0 -58.435825,-34.587298,0 -58.436319,-34.586989,0 -58.434473,-34.585549,0 -58.4335000086093,-34.5860688547171,0 -58.4332220401827,-34.5862404848153,0 -58.4310627144799,-34.5842761266797,0 -58.431319,-34.584198,0 -58.425343,-34.57896,0 -58.420189,-34.581067,0 -58.411526,-34.582247,0 -58.438343,-34.599909,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.19">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">8. Palermo Oeste</SimpleData>
+		<SimpleData name="area">1.774</SimpleData>
+		<SimpleData name="layer">Norte</SimpleData>
+		<SimpleData name="ID">8</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.450767,-34.588665,0 -58.444459,-34.583471,0 -58.435704,-34.575344,0 -58.426391,-34.57863,0 -58.445446,-34.593752,0 -58.44742,-34.592516,0 -58.450767,-34.588665,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.20">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">9. Colegiales</SimpleData>
+		<SimpleData name="area">2.786</SimpleData>
+		<SimpleData name="layer">Norte</SimpleData>
+		<SimpleData name="ID">9</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.455893,-34.583141,0 -58.46027,-34.578194,0 -58.4667351822517,-34.5727325904041,0 -58.4607094286153,-34.5686666987195,0 -58.4575095314569,-34.5694759873113,0 -58.4560501972173,-34.5700482102887,0 -58.4535137353246,-34.5708207050616,0 -58.4502128602587,-34.5721081804005,0 -58.4494484470855,-34.5722798422727,0 -58.4488925102323,-34.5725373344165,0 -58.4459390956997,-34.5735672950168,0 -58.4443407772467,-34.5743683666621,0 -58.4426382206338,-34.5750549933573,0 -58.4405534574343,-34.5758846597143,0 -58.4376695350083,-34.5768859701524,0 -58.445174,-34.584696,0 -58.4507687971119,-34.5885002897574,0 -58.45291,-34.586179,0 -58.455893,-34.583141,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.21">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">10. Belgrano Norte</SimpleData>
+		<SimpleData name="area">2.386</SimpleData>
+		<SimpleData name="layer">Norte</SimpleData>
+		<SimpleData name="ID">10</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.4625812216841,-34.5555766684741,0 -58.457972,-34.553405,0 -58.450376,-34.558388,0 -58.4412646644489,-34.5620994442611,0 -58.4353977220906,-34.564273589191,0 -58.4294480674599,-34.5673809563595,0 -58.431579,-34.569167,0 -58.428102,-34.57256,0 -58.432094,-34.57415,0 -58.437673,-34.56839,0 -58.442007,-34.571217,0 -58.4522162901844,-34.565884030274,0 -58.4625812216841,-34.5555766684741,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.22">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">11. Belgrano Sur</SimpleData>
+		<SimpleData name="area">1.624</SimpleData>
+		<SimpleData name="layer">Norte</SimpleData>
+		<SimpleData name="ID">11</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.4627927858021,-34.5555026304823,0 -58.45726,-34.560648,0 -58.4522483013068,-34.5658264694152,0 -58.4354457875955,-34.5753696928829,0 -58.439128869248,-34.5761993585802,0 -58.4573358011903,-34.5695332097863,0 -58.462308,-34.563867,0 -58.4672258843844,-34.5577912484656,0 -58.4627927858021,-34.5555026304823,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.23">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">12. Belgrano R</SimpleData>
+		<SimpleData name="area">1.467</SimpleData>
+		<SimpleData name="layer">Norte</SimpleData>
+		<SimpleData name="ID">12</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.459782,-34.568054,0 -58.460678,-34.568613,0 -58.461646,-34.569121,0 -58.463169,-34.570093,0 -58.463796,-34.57045,0 -58.46532,-34.571387,0 -58.467852,-34.572861,0 -58.468216,-34.573069,0 -58.468614,-34.573243,0 -58.469236,-34.573656,0 -58.470759,-34.574442,0 -58.472304,-34.575414,0 -58.473651,-34.576136,0 -58.474353,-34.575286,0 -58.476016,-34.573434,0 -58.47846,-34.570711,0 -58.479587,-34.569262,0 -58.479932,-34.569167,0 -58.478093,-34.568244,0 -58.475716,-34.567392,0 -58.473532,-34.566781,0 -58.464412,-34.560971,0 -58.46385,-34.561736,0 -58.46321,-34.562802,0 -58.46291,-34.563084,0 -58.461981,-34.564132,0 -58.459633,-34.566903,0 -58.45889937359,-34.5675590116441,0 -58.459782,-34.568054,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.24">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">13. Núñez Norte</SimpleData>
+		<SimpleData name="area">2.769</SimpleData>
+		<SimpleData name="layer">Norte</SimpleData>
+		<SimpleData name="ID">13</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.467715,-34.536332,0 -58.4669,-34.536014,0 -58.454069,-34.549376,0 -58.444198,-34.54577,0 -58.4345665719231,-34.5534022962182,0 -58.4447848298639,-34.5606499827333,0 -58.4463004566398,-34.5600460329751,0 -58.4493317101916,-34.5586770639548,0 -58.4580343413564,-34.5532814960933,0 -58.460603,-34.550648,0 -58.4644879779506,-34.546315058879,0 -58.467715,-34.536332,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.25">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">16. Saavedra Sur</SimpleData>
+		<SimpleData name="area">1.139</SimpleData>
+		<SimpleData name="layer">Norte</SimpleData>
+		<SimpleData name="ID">16</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.504006,-34.567326,0 -58.49627,-34.563571,0 -58.492338,-34.561338,0 -58.491805,-34.561381,0 -58.493577,-34.558864,0 -58.486643,-34.567862,0 -58.492769,-34.570889,0 -58.498642,-34.573934,0 -58.501775,-34.570153,0 -58.504006,-34.567326,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.26">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">17. Villa Urquiza Oeste</SimpleData>
+		<SimpleData name="area">1.549</SimpleData>
+		<SimpleData name="layer">Norte</SimpleData>
+		<SimpleData name="ID">17</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.480129,-34.579739,0 -58.484771,-34.58255,0 -58.488598,-34.584867,0 -58.495218,-34.579508,0 -58.488556,-34.575392,0 -58.482635,-34.570742,0 -58.479932,-34.569167,0 -58.47846,-34.570711,0 -58.477858,-34.571488,0 -58.477166,-34.572264,0 -58.475522,-34.574114,0 -58.473651,-34.576136,0 -58.475475,-34.577242,0 -58.479015,-34.579106,0 -58.480129,-34.579739,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.27">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">18. Villa Urquiza Este</SimpleData>
+		<SimpleData name="area">1.704</SimpleData>
+		<SimpleData name="layer">Norte</SimpleData>
+		<SimpleData name="ID">18</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.494839,-34.578755,0 -58.498492,-34.574252,0 -58.495616,-34.572592,0 -58.493916,-34.571702,0 -58.492131,-34.5709,0 -58.488314,-34.568802,0 -58.485912,-34.5675,0 -58.481632,-34.565371,0 -58.467257,-34.557766,0 -58.464412,-34.560971,0 -58.47259,-34.56597,0 -58.479094,-34.56853,0 -58.483563,-34.571193,0 -58.484754,-34.57243,0 -58.486824,-34.57402,0 -58.489008,-34.575306,0 -58.493412,-34.577783,0 -58.494839,-34.578755,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.28">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">1. Retiro</SimpleData>
+		<SimpleData name="area">1.268</SimpleData>
+		<SimpleData name="layer">Norte</SimpleData>
+		<SimpleData name="ID">1</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.3703521367797,-34.6030115780987,0 -58.3812639225599,-34.6036256997272,0 -58.381368,-34.60172,0 -58.3815546588883,-34.5992263596811,0 -58.3818500003416,-34.5948502904037,0 -58.3817631352083,-34.5921759123543,0 -58.3815546588883,-34.5901736478343,0 -58.3815025398084,-34.5896158655532,0 -58.3812766904617,-34.5893870307136,0 -58.380893,-34.589373,0 -58.380153,-34.589532,0 -58.379611,-34.588468,0 -58.378565,-34.588915,0 -58.377674,-34.589136,0 -58.375389,-34.592298,0 -58.3737821473146,-34.5934238683045,0 -58.372756252925,-34.5946266577312,0 -58.3718547093705,-34.5966056775647,0 -58.3712018674862,-34.5983799312103,0 -58.3706526512978,-34.6005379866673,0 -58.3703521367797,-34.6030115780987,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.29">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">3. Recoleta Este</SimpleData>
+		<SimpleData name="area">2.851</SimpleData>
+		<SimpleData name="layer">Norte</SimpleData>
+		<SimpleData name="ID">3</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.398749455631,-34.6045815116092,0 -58.4053340181878,-34.6047477653063,0 -58.3998310829373,-34.5889865682278,0 -58.3974683513112,-34.5874419091313,0 -58.3916834353084,-34.5917480049238,0 -58.390917,-34.590954,0 -58.388625,-34.592902,0 -58.3822148339015,-34.5927622806858,0 -58.381865,-34.603954,0 -58.387375,-34.604143,0 -58.392198,-34.604403,0 -58.3923317763676,-34.6044183457856,0 -58.3924852855201,-34.604403,0 -58.398749455631,-34.6045815116092,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.30">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">15. Saavedra Norte</SimpleData>
+		<SimpleData name="area">4.225</SimpleData>
+		<SimpleData name="layer">Norte</SimpleData>
+		<SimpleData name="ID">15</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.48791,-34.566408,0 -58.48928,-34.564785,0 -58.490285,-34.563578,0 -58.491077,-34.562506,0 -58.491805,-34.561381,0 -58.49604,-34.554642,0 -58.497226,-34.553182,0 -58.497926,-34.552169,0 -58.49884,-34.551404,0 -58.499462,-34.550406,0 -58.498003,-34.549045,0 -58.495056,-34.547975,0 -58.492996,-34.548876,0 -58.491726,-34.550538,0 -58.490021,-34.552822,0 -58.487548,-34.551487,0 -58.48574,-34.550609,0 -58.484184,-34.549398,0 -58.48747,-34.545006,0 -58.478581,-34.540658,0 -58.47433,-34.549366,0 -58.467257,-34.557766,0 -58.476462,-34.562562,0 -58.476473,-34.56255,0 -58.476888,-34.562758,0 -58.477981,-34.563238,0 -58.483162,-34.566058,0 -58.486582,-34.567801,0 -58.48791,-34.566408,0</coordinates></LinearRing></outerBoundaryIs><innerBoundaryIs><LinearRing><coordinates>-58.4856000661179,-34.5504470192097,0 -58.4859805265126,-34.5501728309303,0 -58.4856951812166,-34.5505253585521,0 -58.48574,-34.550609,0 -58.4856000661179,-34.5504470192097,0</coordinates></LinearRing></innerBoundaryIs><innerBoundaryIs><LinearRing><coordinates>-58.476471,-34.56255,0 -58.476473,-34.56255,0 -58.476611689292,-34.5627062288118,0 -58.476469016644,-34.5628237204824,0 -58.476471,-34.56255,0</coordinates></LinearRing></innerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.31">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">14. Núñez Sur</SimpleData>
+		<SimpleData name="area">2.059</SimpleData>
+		<SimpleData name="layer">Norte</SimpleData>
+		<SimpleData name="ID">14</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.478581,-34.540658,0 -58.4746948947824,-34.5390918679481,0 -58.462783,-34.555684,0 -58.467257,-34.557766,0 -58.4734839562333,-34.5504627767205,0 -58.47433,-34.549366,0 -58.478581,-34.540658,0</coordinates></LinearRing></outerBoundaryIs></Polygon><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.468059,-34.536544,0 -58.466943,-34.540256,0 -58.464196,-34.546619,0 -58.4580832325427,-34.5534425628876,0 -58.462727895243,-34.5556974652665,0 -58.475054,-34.539372,0 -58.468059,-34.536544,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+  <Placemark id="recorridos_totales_consultora.32">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#recorridos_totales_consultora">
+		<SimpleData name="Mapas fila">19. Villa Pueyrredon</SimpleData>
+		<SimpleData name="area">3.553</SimpleData>
+		<SimpleData name="layer">Norte</SimpleData>
+		<SimpleData name="ID">19</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.514423,-34.581484,0 -58.512368,-34.581558,0 -58.506942,-34.5811,0 -58.501902,-34.58073,0 -58.498844,-34.580241,0 -58.495732,-34.57919,0 -58.495196,-34.579455,0 -58.488576,-34.584814,0 -58.503472,-34.593963,0 -58.514423,-34.581484,0</coordinates></LinearRing></outerBoundaryIs></Polygon><Polygon><outerBoundaryIs><LinearRing><coordinates>-58.513748,-34.580956,0 -58.513389,-34.580832,0 -58.513883,-34.580337,0 -58.512794,-34.577906,0 -58.509148,-34.570205,0 -58.508869,-34.56952,0 -58.504006,-34.567326,0 -58.500265,-34.571932,0 -58.498492,-34.574252,0 -58.494839,-34.578755,0 -58.498795,-34.579986,0 -58.499154,-34.580066,0 -58.501595,-34.580534,0 -58.507213,-34.580777,0 -58.512493,-34.581132,0 -58.513797,-34.581159,0 -58.513748,-34.580956,0</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+</Folder>
+</Document></kml>

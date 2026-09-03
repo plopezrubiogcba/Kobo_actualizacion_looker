@@ -21,16 +21,25 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
 PROJ_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RECORRIDOS_KML_PATHS = [os.path.join(PROJ_ROOT, r) for r in RECORRIDOS_KML]
 
+# Filtro opcional: reasignar solo desde una fecha_reporte en adelante.
+# Ej: RECLASIF_DESDE=2026-09-01 → no toca el histórico anterior (recorridos viejos).
+DESDE_FECHA = os.environ.get('RECLASIF_DESDE')
+
 
 def main():
     print("🗺️  Asignación de dupla a histórico (KML de recorridos)...")
+    if DESDE_FECHA:
+        print(f"   ⏳ Solo registros con fecha_reporte >= {DESDE_FECHA}")
 
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
     ensure_missing_columns(engine)
 
+    where = 'latitude IS NOT NULL AND longitude IS NOT NULL'
+    if DESDE_FECHA:
+        where += f" AND \"fecha_reporte\" >= '{DESDE_FECHA}'"
     with engine.connect() as conn:
         df = pd.read_sql(
-            text(f'SELECT "_uuid", latitude::float AS latitude, longitude::float AS longitude FROM "{NEON_TABLE_NAME}" WHERE latitude IS NOT NULL AND longitude IS NOT NULL'),
+            text(f'SELECT "_uuid", latitude::float AS latitude, longitude::float AS longitude FROM "{NEON_TABLE_NAME}" WHERE {where}'),
             conn
         )
     print(f"   Registros con GPS a procesar: {len(df)}")

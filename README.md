@@ -52,7 +52,7 @@ Prioridad en solapamientos: `Frontera Norte > Frontera Sur-este > C2 > C14 > C13
 
 Desde septiembre los formularios ya no incluyen `tipo_flash` (zona declarada): la clasificación es **solo por GPS** (sin override declarado).
 
-Recorridos por dupla: `assets/recorridos flash norte.kml` (duplas 1–19) + `assets/recorridos flash centro.kml` (duplas 21–33). Dupla 20 eliminada.
+Recorridos por dupla: `assets/recorridos_totales_consultora.kml` (consolidado, duplas 1–19 Norte + 21–33 Centro). Dupla 20 eliminada.
 
 ---
 
@@ -66,8 +66,7 @@ Recorridos por dupla: `assets/recorridos flash norte.kml` (duplas 1–19) + `ass
 │   └── generar_overlay_dashboard.py# Regenera mapa_flash.geojson desde el KML
 ├── assets/
 │   ├── mapas flash fronteras nuevos.kml  # Polígonos de zonas Flash (fuente de verdad)
-│   ├── recorridos flash norte.kml        # Recorridos duplas 1-19
-│   └── recorridos flash centro.kml       # Recorridos duplas 21-33
+│   ├── recorridos_totales_consultora.kml   # Recorridos duplas 1-19 + 21-33 (consolidado)
 ├── actualizar.sh                   # Helper local: ETL + deploy Vercel
 ├── Documentacion_Fiabilidad_Datos.md
 ├── requirements.txt
