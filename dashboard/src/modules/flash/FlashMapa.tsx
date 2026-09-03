@@ -11,15 +11,15 @@ const CABA_CENTER: [number, number] = [-34.615, -58.443]
 
 const ZONA_COLOR: Record<string, string> = {
   'Frontera Norte': '#ef4444',
-  'Frontera Este': '#6366f1',
+  'Frontera Este': '#8b5cf6',
   'Frontera Sur': '#14b8a6',
   C2: '#f97316',
   C14: '#3b82f6',
   C13: '#22c55e',
-  C12: '#a855f7',
+  C12: '#d946ef',
   C1A: '#eab308',
   'C15 Centro': '#06b6d4',
-  'C5 Centro': '#ec4899',
+  'C5 Centro': '#a855f7',
   'C3 Centro': '#84cc16',
   'C6 Centro': '#f59e0b',
   Otro: '#94a3b8',
@@ -41,11 +41,26 @@ const ZONA_LABEL: Record<string, string> = {
   Otro: 'Sin zona',
 }
 
+// Familia Frontera: borde discontinuo compartido + relleno más marcado
+const ZONA_EMPHASIS: Record<string, { weight: number; dashArray?: string; fillOpacity: number }> = {
+  'Frontera Norte': { weight: 4, dashArray: '8 5', fillOpacity: 0.28 },
+  'Frontera Este': { weight: 4, dashArray: '8 5', fillOpacity: 0.28 },
+  'Frontera Sur': { weight: 4, dashArray: '8 5', fillOpacity: 0.28 },
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const zoneStyle = (feature: any) => {
+const zoneStyle = (feature: any, highlight = false) => {
   const zona = feature?.properties?.zona ?? ''
   const color = ZONA_COLOR[zona] ?? '#475569'
-  return { color, weight: 2.5, opacity: 0.9, fillColor: color, fillOpacity: 0.18 }
+  const em = ZONA_EMPHASIS[zona]
+  return {
+    color,
+    weight: (em?.weight ?? 2.5) + (highlight ? 2 : 0),
+    opacity: 1,
+    dashArray: em?.dashArray,
+    fillColor: color,
+    fillOpacity: (em?.fillOpacity ?? 0.18) + (highlight ? 0.15 : 0),
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -118,27 +133,54 @@ export const FlashMapa = () => {
     return stats
   }, [geojson, points])
 
-  const makeLabelIcon = (s: ZoneStat) => L.divIcon({
-    className: '',
-    html: `
-      <div style="
-        background: rgba(15,23,42,0.92);
-        color: #fff;
-        border: 2px solid ${s.color};
-        border-radius: 8px;
-        padding: 4px 8px;
-        font: 600 11px system-ui, sans-serif;
-        white-space: nowrap;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-        transform: translate(-50%, -50%);
-      ">
-        <div style="color:${s.color}; font-size:10px; letter-spacing:0.3px;">${s.zona}</div>
-        <div>${s.puntos.toLocaleString('es-AR')} pts · ${s.personas.toLocaleString('es-AR')} PSC</div>
-      </div>
-    `,
-    iconSize: [0, 0],
-    iconAnchor: [0, 0],
-  })
+  const makeLabelIcon = (s: ZoneStat) => {
+    const dim = s.puntos === 0
+    const opacity = dim ? 0.45 : 1
+    return L.divIcon({
+      className: '',
+      html: `
+        <div style="
+          transform: translate(-50%, -100%);
+          margin-bottom: 14px;
+          opacity: ${opacity};
+          filter: drop-shadow(0 3px 6px rgba(0,0,0,0.5));
+        ">
+          <div style="
+            background: rgba(15,23,42,0.95);
+            border-radius: 8px;
+            overflow: hidden;
+            font: 600 11px system-ui, sans-serif;
+            white-space: nowrap;
+            border: 1px solid ${s.color}66;
+          ">
+            <div style="
+              background: ${s.color};
+              color: #0f172a;
+              font-size: 10.5px;
+              font-weight: 800;
+              letter-spacing: 0.6px;
+              text-transform: uppercase;
+              padding: 3px 10px;
+            ">${s.zona}</div>
+            <div style="
+              color: #e2e8f0;
+              padding: 3px 10px 4px;
+              text-align: center;
+            ">${s.puntos.toLocaleString('es-AR')} pts · ${s.personas.toLocaleString('es-AR')} PSC</div>
+          </div>
+          <div style="
+            width: 0; height: 0;
+            margin: 0 auto;
+            border-left: 7px solid transparent;
+            border-right: 7px solid transparent;
+            border-top: 8px solid ${s.color};
+          "></div>
+        </div>
+      `,
+      iconSize: [0, 0],
+      iconAnchor: [0, 0],
+    })
+  }
 
   return (
     <div className="flex flex-col flex-1">
@@ -161,6 +203,12 @@ export const FlashMapa = () => {
             <GeoJSON
               data={geojson}
               style={zoneStyle}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              onEachFeature={(feature: any, layer: L.Layer) => {
+                const path = layer as L.Path
+                path.on('mouseover', () => path.setStyle(zoneStyle(feature, true)))
+                path.on('mouseout', () => path.setStyle(zoneStyle(feature)))
+              }}
             />
           )}
           {points.map(p => (

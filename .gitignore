@@ -62,3 +62,6 @@ Thumbs.db
 *.pkl
 .vercel
 .env*.local
+
+# Graphify generated knowledge graph
+/graphify-out/
