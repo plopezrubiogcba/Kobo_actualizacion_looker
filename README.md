@@ -32,7 +32,7 @@ Vercel (deploy automático en push a main)
 
 ## Clasificación geográfica
 
-Fuente única: **`assets/mapas flash fronteras nuevos.kml`** — 11 zonas operativas Flash (vigente desde 2026-09-01). La columna `Tablero` del KML define el nombre final de zona.
+Fuente única: **`assets/Mapas flash finales.kml`** — 12 zonas operativas Flash (vigente desde 2026-09-03). La columna `Tablero` del KML define el nombre final de zona.
 
 | Zona | Nota KML (`Tipo`) |
 |------|--------|
@@ -41,14 +41,15 @@ Fuente única: **`assets/mapas flash fronteras nuevos.kml`** — 11 zonas operat
 | C14 | Norte |
 | C13 | Norte |
 | C12 | Centro |
-| Frontera Norte | Frontera Norte (antes `Frontera`) |
-| Frontera Sur-este | Frontera Sur-este |
+| Frontera Norte | Norte (antes `Frontera`) |
+| Frontera Este | Centro (antes parte de `Frontera Sur-este`) |
+| Frontera Sur | Centro (antes parte de `Frontera Sur-este`) |
 | C6 Centro | Centro (antes `C6`) |
 | C5 Centro | Centro |
 | C3 Centro | Centro |
 | C15 Centro | Centro |
 
-Prioridad en solapamientos: `Frontera Norte > Frontera Sur-este > C2 > C14 > C13 > C12 > C1A > C15 Centro > C5 Centro > C3 Centro > C6 Centro`.
+Prioridad en solapamientos: `Frontera Norte > Frontera Este > Frontera Sur > C2 > C14 > C13 > C12 > C1A > C15 Centro > C5 Centro > C3 Centro > C6 Centro`.
 
 Desde septiembre los formularios ya no incluyen `tipo_flash` (zona declarada): la clasificación es **solo por GPS** (sin override declarado).
 
@@ -65,7 +66,7 @@ Recorridos por dupla: `assets/recorridos_totales_consultora.kml` (consolidado, d
 │   ├── reclasificar_historico.py   # Reclasificación histórica puntual
 │   └── generar_overlay_dashboard.py# Regenera mapa_flash.geojson desde el KML
 ├── assets/
-│   ├── mapas flash fronteras nuevos.kml  # Polígonos de zonas Flash (fuente de verdad)
+│   ├── Mapas flash finales.kml  # Polígonos de zonas Flash (fuente de verdad)
 │   ├── recorridos_totales_consultora.kml   # Recorridos duplas 1-19 + 21-33 (consolidado)
 ├── actualizar.sh                   # Helper local: ETL + deploy Vercel
 ├── Documentacion_Fiabilidad_Datos.md

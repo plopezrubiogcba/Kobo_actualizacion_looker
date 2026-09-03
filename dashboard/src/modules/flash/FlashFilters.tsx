@@ -6,7 +6,8 @@ const TURNO_LABEL: Record<Turno, string> = { TM: 'Mañana', TT: 'Tarde', TN: 'No
 
 const ZONA_LABEL: Record<string, string> = {
   'Frontera Norte': 'Zona de Frontera Norte',
-  'Frontera Sur-este': 'Zona de Frontera Sur',
+  'Frontera Este': 'Zona de Frontera Este',
+  'Frontera Sur': 'Zona de Frontera Sur',
   C2: 'C2 — Recoleta',
   C14: 'C14 — Palermo',
   C13: 'C13 — Belgrano',
@@ -20,7 +21,7 @@ const ZONA_LABEL: Record<string, string> = {
 }
 
 const ZONE_ORDER = [
-  'Frontera Norte', 'Frontera Sur-este', 'C2', 'C14', 'C13', 'C12', 'C1A',
+  'Frontera Norte', 'Frontera Este', 'Frontera Sur', 'C2', 'C14', 'C13', 'C12', 'C1A',
   'C15 Centro', 'C5 Centro', 'C3 Centro', 'C6 Centro', 'Otro',
 ]
 

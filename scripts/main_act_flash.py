@@ -49,7 +49,7 @@ NEON_TABLE_NAME = 'kobo_flash_consolidado'
 
 # Prioridad de asignación cuando un punto cae en más de un polígono
 ZONE_PRIORITY = [
-    'Frontera Norte', 'Frontera Sur-este',
+    'Frontera Norte', 'Frontera Este', 'Frontera Sur',
     'C2', 'C14', 'C13', 'C12', 'C1A',
     'C15 Centro', 'C5 Centro', 'C3 Centro', 'C6 Centro',
 ]
@@ -291,7 +291,7 @@ def ensure_missing_columns(engine):
 
 def clasificar_localizacion(puntos_gdf, zonas_dict):
     """Asigna zona Flash a cada punto según prioridad GPS.
-    Prioridad: Frontera Norte > Frontera Sur-este > C2 > C14 > C13 > C12 > C1A
+    Prioridad: Frontera Norte > Frontera Este > Frontera Sur > C2 > C14 > C13 > C12 > C1A
     > C15 Centro > C5 Centro > C3 Centro > C6 Centro."""
     puntos_gdf = puntos_gdf.to_crs("EPSG:4326")
     puntos_gdf = puntos_gdf.copy()
@@ -428,7 +428,7 @@ def main():
     
     # Cargar capas Geo (KML de zonas Flash)
     PROJ_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    ruta_kml = os.path.join(PROJ_ROOT, "assets", "mapas flash fronteras nuevos.kml")
+    ruta_kml = os.path.join(PROJ_ROOT, "assets", "Mapas flash finales.kml")
 
     if os.path.exists(ruta_kml):
         zonas_dict = cargar_zonas_flash(ruta_kml)

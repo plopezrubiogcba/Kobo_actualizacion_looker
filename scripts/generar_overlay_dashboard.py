@@ -15,7 +15,7 @@ from shapely.ops import unary_union
 from main_act_flash import ZONE_COL, ZONE_RENAME, ZONE_PRIORITY
 
 PROJ_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-KML_PATH  = os.path.join(PROJ_ROOT, "assets", "mapas flash fronteras nuevos.kml")
+KML_PATH  = os.path.join(PROJ_ROOT, "assets", "Mapas flash finales.kml")
 OUT_PATH  = os.path.join(PROJ_ROOT, "dashboard", "public", "data", "mapa_flash.geojson")
 
 def main():
