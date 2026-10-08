@@ -67,6 +67,7 @@ Thumbs.db
 /graphify-out/
 
 # --- EXCEPCIONES: datos versionados (parquet canónico + datos estáticos del front) ---
+!dashboard/package-lock.json
 !data/kobo_flash.parquet
 !data/meta.json
 !dashboard/public/data/*.json
