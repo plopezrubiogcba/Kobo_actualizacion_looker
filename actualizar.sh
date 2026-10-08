@@ -3,20 +3,20 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "=== 1/3 Actualizando base de datos ==="
+echo "=== 1/4 Actualizando parquet canónico ==="
 cd "$SCRIPT_DIR"
-python scripts/main_act_flash.py
+python scripts/actualizar_parquet.py
 
 echo ""
-echo "=== 2/3 Enriqueciendo registros ==="
-python scripts/enriquecer_base.py
+echo "=== 2/4 Generando datos del front (JSON + CSV) ==="
+python scripts/generar_front_data.py
 
 echo ""
-echo "=== 2b/3 Sincronizando sheet de duplas ==="
+echo "=== 3/4 Sincronizando sheet de duplas (JSON) ==="
 python scripts/sync_sheet_duplas.py
 
 echo ""
-echo "=== 3/3 Deploy a Vercel ==="
+echo "=== 4/4 Deploy a Vercel ==="
 cd "$SCRIPT_DIR/dashboard"
 vercel --prod --yes
 

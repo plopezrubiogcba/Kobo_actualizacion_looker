@@ -78,13 +78,15 @@ Si el GPS clasifica el punto en una zona distinta a la declarada, el sistema mid
 
 ## 5. Estabilidad y Unicidad
 
-1. **Sin duplicados**: El campo `_uuid` de Kobo actúa como guardia. El sistema verifica siempre que un UUID no exista en Neon antes de insertarlo.
-2. **Carga incremental**: En cada ejecución se detecta el `MAX(_submission_time)` existente en Neon y solo se bajan registros posteriores a ese momento desde Kobo.
+1. **Sin duplicados**: El campo `_uuid` de Kobo actúa como guardia. El parquet canónico (`data/kobo_flash.parquet`) se construye con deduplicación por `_uuid` (se conserva la primera aparición), replicando el filtro que hacía el ETL incremental sobre Neon.
+2. **Full pull**: Cada ejecución descarga la totalidad de los 3 forms desde la API de Kobo (Neon quedó deprecado) y reemplaza el parquet canónico. No hay estado incremental que mantener.
 3. **Histórico alineado**: Todos los registros históricos fueron reclasificados con la nueva lógica de zonas Flash para garantizar comparabilidad total.
 
 ---
 
-## 6. Columnas en la Base de Datos (Neon)
+## 6. Columnas en la Base de Datos (parquet canónico)
+
+Fuente de verdad: `data/kobo_flash.parquet` (mismas columnas que antes en Neon).
 
 | Columna | Descripción |
 |---|---|
@@ -94,8 +96,6 @@ Si el GPS clasifica el punto en una zona distinta a la declarada, el sistema mid
 | `inicio_semana_lunes` | Lunes de la semana a la que pertenece el registro |
 | `Turno` | TM / TO / TT / TN según hora del `start` |
 | `Localizacion` | Código de zona Flash: `C2`, `C14`, `C13`, `C12`, `C1A`, `C6` o `"Otro"` |
-| `tipo_flash` | Flash declarado por operador (1=C2, 2=C14, 3=C13, 4=Otro, 5=C12, 6=C1A, 7=C6). NULL en histórico. |
-| `tipo_flash_otro` | Texto libre cuando `tipo_flash = 4`. NULL en histórico. |
 | `_uuid` | Identificador único de Kobo (garantiza unicidad) |
 | `_submission_time` | Momento en que se envió el formulario a Kobo |
 
@@ -124,7 +124,7 @@ Se detectaron registros con valores imposibles en la columna `Cantidad de person
 
 ## 9. Automatización
 
-El proceso corre automáticamente vía **GitHub Actions** de lunes a viernes cada hora (minuto 15). También puede dispararse manualmente desde la pestaña Actions en GitHub con el botón "Run workflow".
+El proceso corre automáticamente vía **GitHub Actions** de lunes a viernes cada hora (minuto 15): ETL → parquet canónico → JSON/CSV del front → commit diario de datos → deploy a Vercel (`VERCEL_TOKEN`). También puede dispararse manualmente desde la pestaña Actions en GitHub con el botón "Run workflow", o localmente con `./actualizar.sh`.
 
 ---
 

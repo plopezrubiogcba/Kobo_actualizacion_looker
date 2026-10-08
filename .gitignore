@@ -65,3 +65,11 @@ Thumbs.db
 
 # Graphify generated knowledge graph
 /graphify-out/
+
+# --- EXCEPCIONES: datos versionados (parquet canónico + datos estáticos del front) ---
+!data/kobo_flash.parquet
+!data/meta.json
+!dashboard/public/data/*.json
+!dashboard/public/data/*.csv
+!dashboard/.vercel/
+!dashboard/.vercel/project.json

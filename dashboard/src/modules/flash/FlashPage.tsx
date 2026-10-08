@@ -49,9 +49,19 @@ export const FlashPage = () => {
 
       {!error && (
         <div className="p-6 flex flex-col gap-6">
-          <div className="flex gap-4 flex-wrap">
+          <div className="flex gap-4 flex-wrap items-stretch">
             <StatCard label="Personas observadas (PSC)" value={data.totals.personas} color="bg-blue-600" />
             <StatCard label="Puntos relevados" value={data.totals.puntos} color="bg-sky-400" />
+            <a
+              href="/data/flash.csv"
+              download="kobo_flash.csv"
+              className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4 flex items-center gap-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+              </svg>
+              Descargar CSV
+            </a>
           </div>
 
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">

@@ -1,0 +1,20 @@
+{
+  "date_min": "2025-04-16",
+  "date_max": "2026-10-07",
+  "zonas": [
+    "C12",
+    "C13",
+    "C14",
+    "C15 Centro",
+    "C1A",
+    "C2",
+    "C3 Centro",
+    "C5 Centro",
+    "C6 Centro",
+    "Frontera Este",
+    "Frontera Norte",
+    "Frontera Sur",
+    "Otro"
+  ],
+  "generated_at": "2026-10-08T14:30:09"
+}

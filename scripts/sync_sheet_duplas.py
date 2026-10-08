@@ -6,22 +6,17 @@ import os
 import re
 import tempfile
 import time
+import json
 from datetime import datetime
 import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
 load_dotenv()
 
 PROJ_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-DATABASE_URL = os.environ.get("DATABASE_URL")
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-
-NEON_TABLE = 'control_duplas_sheet'
+OUT_PATH = os.path.join(PROJ_ROOT, "dashboard", "public", "data", "control_sheet.json")
 
 SCOPES = [
     "https://spreadsheets.google.com/feeds",
@@ -127,10 +122,6 @@ def reintentar(fn, intentos=5, espera_base=10):
 
 
 def main():
-    if not DATABASE_URL:
-        print("❌ ERROR: DATABASE_URL no configurada.")
-        return
-
     ruta_creds = obtener_credenciales()
     if not ruta_creds:
         print("❌ ERROR: no se encontraron credenciales de Google (GOOGLE_CREDENTIALS_JSON o kobo-looker-connect.json).")
@@ -181,31 +172,32 @@ def main():
         columns=['fecha', 'turno', 'dupla', 'registros', 'responsable', 'poligono', 'foto_url', 'sheet_row'],
     )
 
-    engine = create_engine(DATABASE_URL)
-    with engine.connect() as conn:
-        conn.execute(text(f'''
-            CREATE TABLE IF NOT EXISTS "{NEON_TABLE}" (
-                fecha DATE,
-                turno TEXT,
-                dupla INTEGER,
-                registros INTEGER,
-                responsable TEXT,
-                poligono TEXT,
-                foto_url TEXT,
-                sheet_row INTEGER,
-                synced_at TIMESTAMPTZ DEFAULT now()
-            )
-        '''))
-        conn.execute(text(f'ALTER TABLE "{NEON_TABLE}" ADD COLUMN IF NOT EXISTS foto_url TEXT'))
-        conn.commit()
+    # Export a JSON estatico para el front (mismo shape que hacia el FULL OUTER
+    # JOIN de control.ts en SQL): sheet = SUM(registros) por (fecha, dupla),
+    # turnos distintos, fotos ordenadas por sheet_row.
+    # Nota: pandas 3 dtype 'str' usa NaN como faltante (no None) — filtrar por isinstance.
+    filas = []
+    for (fecha, dupla), g in df_out.groupby(["fecha", "dupla"], sort=True):
+        turnos = list(dict.fromkeys(t for t in g["turno"] if isinstance(t, str) and t))
+        fotos = [{"turno": r.turno if isinstance(r.turno, str) else None, "url": r.foto_url}
+                 for r in g.sort_values("sheet_row").itertuples()
+                 if isinstance(r.foto_url, str) and r.foto_url]
+        filas.append({
+            "fecha": str(fecha),
+            "dupla": int(dupla),
+            "sheet": int(g["registros"].sum()),
+            "turnos_sheet": turnos,
+            "fotos": fotos,
+        })
+
+    payload = {"generated_at": datetime.now().isoformat(timespec="seconds"), "rows": filas}
+    os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
+    with open(OUT_PATH, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, allow_nan=False)
 
     fechas_lote = sorted(df_out['fecha'].astype(str).unique().tolist())
-    with engine.begin() as conn:
-        conn.execute(text(f'DELETE FROM "{NEON_TABLE}"'))
-
-    df_out.to_sql(NEON_TABLE, con=engine, if_exists='append', index=False, method='multi')
-
-    print(f"✅ {len(df_out)} filas sincronizadas (fechas: {fechas_lote[0]} a {fechas_lote[-1]}).")
+    print(f"✅ {len(df_out)} filas -> {len(filas)} grupos (fechas: {fechas_lote[0]} a {fechas_lote[-1]}).")
+    print(f"💾 Guardado: {OUT_PATH}")
 
 
 if __name__ == "__main__":

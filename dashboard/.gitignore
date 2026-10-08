@@ -23,5 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 
-.vercel
+# .vercel: solo el link del proyecto se commitea (lo necesita el deploy en CI)
+.vercel/*
+!.vercel/project.json
 .env*

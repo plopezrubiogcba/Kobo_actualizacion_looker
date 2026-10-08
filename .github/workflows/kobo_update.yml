@@ -7,15 +7,21 @@ on:
     - cron: '15 * * * 1-5'
   workflow_dispatch: # Permite ejecutar manualmente cualquier día si hace falta
 
+permissions:
+  contents: write
+
 jobs:
   run-etl-process:
     runs-on: ubuntu-latest
     env:
       TZ: America/Argentina/Buenos_Aires
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
     steps:
       - name: Checkout del código
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # histórico completo: se necesita p/ saber si ya hay snapshot de hoy
 
       - name: Configurar Python
         uses: actions/setup-python@v4
@@ -34,23 +40,48 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Ejecutar Script Principal
+      - name: ETL -> parquet canónico
         env:
           KOBO_TOKEN_NORTE: ${{ secrets.KOBO_TOKEN_NORTE }}
           KOBO_TOKEN_CENTRO: ${{ secrets.KOBO_TOKEN_CENTRO }}
           KOBO_TOKEN_SUR: ${{ secrets.KOBO_TOKEN_SUR }}
-          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python scripts/main_act_flash.py
+        run: python scripts/actualizar_parquet.py
 
-      - name: Enriquecer fecha_reporte e inicio_semana_lunes
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python scripts/enriquecer_base.py
+      - name: Generar datos del front (JSON + CSV)
+        run: python scripts/generar_front_data.py
 
-      - name: Sincronizar sheet de duplas
+      - name: Sincronizar sheet de duplas -> JSON
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
           SHEET_DUPLAS: ${{ vars.SHEET_DUPLAS }}
         run: python scripts/sync_sheet_duplas.py
+
+      # Snapshot canónico 1x/día (data/ + datos estáticos del front).
+      # El deploy horario NO depende de este commit: usa vercel CLI con el
+      # workspace recién generado. Esto solo deja respaldo versionado.
+      - name: Commit snapshot diario de datos
+        run: |
+          TODAY=$(date +%F)
+          if [ -z "$(git status --porcelain data/ dashboard/public/data/)" ]; then
+            echo "Sin cambios en datos — nada que commitear."
+          elif [ "$(git log -1 --format=%cs -- data/ dashboard/public/data/)" = "$TODAY" ]; then
+            echo "Snapshot de hoy ya commiteado."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/ dashboard/public/data/
+            git commit -m "data: snapshot diario ${TODAY}"
+            git push
+          fi
+
+      - name: Deploy a Vercel
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::warning::VERCEL_TOKEN no configurado — deploy horario omitido. Agregar el secret para publicar datos frescos."
+            exit 0
+          fi
+          cd dashboard
+          npm ci
+          npx vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          npx vercel build --prod --token="$VERCEL_TOKEN"
+          npx vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"

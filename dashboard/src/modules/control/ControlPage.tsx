@@ -96,7 +96,8 @@ export const ControlPage = () => {
 
   const toggleTurno = (t: Turno) => {
     const next = new Set(turnos)
-    next.has(t) ? next.delete(t) : next.add(t)
+    if (next.has(t)) next.delete(t)
+    else next.add(t)
     setTurnos(next)
   }
 
