@@ -1,6 +1,6 @@
 {
   "date_min": "2025-04-16",
-  "date_max": "2026-10-22",
+  "date_max": "2026-10-23",
   "zonas": [
     "C12",
     "C13",
@@ -16,5 +16,5 @@
     "Frontera Sur",
     "Otro"
   ],
-  "generated_at": "2026-10-23T04:27:30"
+  "generated_at": "2026-10-26T01:42:03"
 }

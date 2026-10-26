@@ -57100,5 +57100,7 @@
 {"id":"898615543","lat":-34.627777,"lon":-58.379884,"personas":2,"turno":"TN","localizacion":"Frontera Sur","fecha":"2026-10-21","dupla":32},
 {"id":"898616698","lat":-34.622327,"lon":-58.368144,"personas":1,"turno":"TN","localizacion":"Frontera Sur","fecha":"2026-10-21","dupla":null},
 {"id":"898617704","lat":-34.619263,"lon":-58.36845,"personas":3,"turno":"TN","localizacion":"Frontera Este","fecha":"2026-10-21","dupla":null},
-{"id":"898618393","lat":-34.617152,"lon":-58.370663,"personas":1,"turno":"TN","localizacion":"Frontera Este","fecha":"2026-10-21","dupla":21}
+{"id":"898618393","lat":-34.617152,"lon":-58.370663,"personas":1,"turno":"TN","localizacion":"Frontera Este","fecha":"2026-10-21","dupla":21},
+{"id":"899886174","lat":-34.684685,"lon":-58.548422,"personas":1,"turno":"TT","localizacion":"Otro","fecha":"2026-10-23","dupla":null},
+{"id":"899886413","lat":-34.684685,"lon":-58.548422,"personas":1,"turno":"TT","localizacion":"Otro","fecha":"2026-10-23","dupla":null}
 ]
