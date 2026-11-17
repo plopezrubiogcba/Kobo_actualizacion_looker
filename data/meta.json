@@ -1,5 +1,5 @@
 {
-  "fecha": "20261116_0322",
+  "fecha": "20261117_0612",
   "fuente": "Kobo API full pull -> parquet canonico (Neon deprecado)",
   "forms": [
     {
@@ -8,35 +8,35 @@
     },
     {
       "uid": "aPou2eJThDtn45mdmfrbaA",
-      "n": 13688
+      "n": 13694
     },
     {
       "uid": "aBVmBrbhxVuujtx2254vGT",
       "n": 3896
     }
   ],
-  "raw_total": 62204,
+  "raw_total": 62210,
   "descartados_sin_geo": 0,
   "duplicados_uuid": 217,
-  "final_total": 61987,
-  "uuid_unicos": 61987,
+  "final_total": 61993,
+  "uuid_unicos": 61993,
   "min_submission": "2025-04-16T10:26:41",
-  "max_submission": "2026-11-14T05:58:03",
+  "max_submission": "2026-11-16T15:25:14",
   "zonas": {
     "C2": 24188,
-    "C14": 9041,
-    "Frontera Norte": 6966,
-    "C13": 5230,
+    "C14": 9040,
+    "Frontera Norte": 6969,
+    "C13": 5235,
     "C1A": 3414,
     "C6 Centro": 2616,
     "Frontera Este": 2599,
     "C12": 2069,
     "Frontera Sur": 2030,
-    "C15 Centro": 1597,
+    "C15 Centro": 1596,
     "C3 Centro": 1444,
     "C5 Centro": 666,
     "Otro": 127
   },
   "archivo": "data/kobo_flash.parquet",
-  "sha256": "461100f33a463a0a8aaf941be7e1015772c47a0fc3fc87188d0e1011ddb0f279"
+  "sha256": "fb3d9827e85857e9e31e8ef8c0f2f997e9bb9f435db7c0d65004362ddb9ad0c6"
 }
