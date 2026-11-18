@@ -1,42 +1,42 @@
 {
-  "fecha": "20261117_0612",
+  "fecha": "20261118_0713",
   "fuente": "Kobo API full pull -> parquet canonico (Neon deprecado)",
   "forms": [
     {
       "uid": "aH2SygyBTRCkqCgBtu4m3R",
-      "n": 44620
+      "n": 44972
     },
     {
       "uid": "aPou2eJThDtn45mdmfrbaA",
-      "n": 13694
+      "n": 13956
     },
     {
       "uid": "aBVmBrbhxVuujtx2254vGT",
-      "n": 3896
+      "n": 4063
     }
   ],
-  "raw_total": 62210,
+  "raw_total": 62991,
   "descartados_sin_geo": 0,
   "duplicados_uuid": 217,
-  "final_total": 61993,
-  "uuid_unicos": 61993,
+  "final_total": 62774,
+  "uuid_unicos": 62774,
   "min_submission": "2025-04-16T10:26:41",
-  "max_submission": "2026-11-16T15:25:14",
+  "max_submission": "2026-11-18T09:04:29",
   "zonas": {
-    "C2": 24188,
-    "C14": 9040,
-    "Frontera Norte": 6969,
-    "C13": 5235,
-    "C1A": 3414,
-    "C6 Centro": 2616,
-    "Frontera Este": 2599,
-    "C12": 2069,
-    "Frontera Sur": 2030,
-    "C15 Centro": 1596,
-    "C3 Centro": 1444,
-    "C5 Centro": 666,
+    "C2": 24268,
+    "C14": 9097,
+    "Frontera Norte": 7098,
+    "C13": 5293,
+    "C1A": 3468,
+    "Frontera Este": 2713,
+    "C6 Centro": 2644,
+    "C12": 2100,
+    "Frontera Sur": 2083,
+    "C15 Centro": 1706,
+    "C3 Centro": 1493,
+    "C5 Centro": 684,
     "Otro": 127
   },
   "archivo": "data/kobo_flash.parquet",
-  "sha256": "fb3d9827e85857e9e31e8ef8c0f2f997e9bb9f435db7c0d65004362ddb9ad0c6"
+  "sha256": "0eea16a3ca2a748699acd3741a79d179cb773b095f34d1b31f4424230426d57c"
 }
