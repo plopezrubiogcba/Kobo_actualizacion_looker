@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { UpdatedBadge } from './UpdatedBadge'
 
 const cls = ({ isActive }: { isActive: boolean }) =>
   `text-sm px-4 py-1.5 rounded font-medium transition-colors ${isActive
@@ -16,12 +17,15 @@ export const NavBar = () => (
         <NavLink to="/mapa" className={cls}>Mapa</NavLink>
         <NavLink to="/control" className={cls}>Control</NavLink>
       </nav>
-      <a
-        href="https://kobo-omega.vercel.app/"
-        className="ml-auto bg-yellow-400 hover:bg-yellow-300 text-blue-900 font-bold text-sm px-4 py-1.5 rounded-lg shadow transition-colors"
-      >
-        KOBO Intervenciones ↗
-      </a>
+      <div className="ml-auto flex items-center gap-3">
+        <UpdatedBadge />
+        <a
+          href="https://kobo-omega.vercel.app/"
+          className="bg-yellow-400 hover:bg-yellow-300 text-blue-900 font-bold text-sm px-4 py-1.5 rounded-lg shadow transition-colors"
+        >
+          KOBO Intervenciones ↗
+        </a>
+      </div>
     </div>
   </header>
 )

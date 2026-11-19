@@ -17,6 +17,7 @@ import sys
 import json
 import csv
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -25,6 +26,7 @@ PARQUET_PATH = os.path.join(PROJ_ROOT, "data", "kobo_flash.parquet")
 OUT_DIR = os.path.join(PROJ_ROOT, "dashboard", "public", "data")
 
 CSV_FIELDS = ["id", "lat", "lon", "personas", "turno", "localizacion", "fecha", "dupla"]
+AR_TZ = ZoneInfo("America/Argentina/Buenos_Aires")
 
 
 def serie(df, col):
@@ -79,7 +81,7 @@ def construir_meta(df):
         "date_min": fechas.min().strftime("%Y-%m-%d") if len(fechas) else None,
         "date_max": fechas.max().strftime("%Y-%m-%d") if len(fechas) else None,
         "zonas": zonas,
-        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "generated_at": datetime.now(AR_TZ).isoformat(timespec="seconds"),
     }
 
 

@@ -64,6 +64,43 @@ const bucketOf = (fecha: string, gran: Granularity): string => {
   return d.toISOString().slice(0, 10)
 }
 
+const AR_TZ = 'America/Argentina/Buenos_Aires'
+const HAS_TZ = /(?:[zZ]|[+-]\d{2}:?\d{2})$/
+
+// generated_at puede venir sin offset (corridas viejas del ETL): en ese caso
+// corresponde a hora de Buenos Aires, así que se interpreta como -03:00.
+const parseART = (iso: string): Date | null => {
+  const d = new Date(HAS_TZ.test(iso) ? iso : `${iso}-03:00`)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+export const formatUpdatedART = (iso?: string): string => {
+  if (!iso) return ''
+  const d = parseART(iso)
+  if (!d) return ''
+  return d.toLocaleString('es-AR', {
+    timeZone: AR_TZ,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
+
+export const formatDateART = (iso?: string): string => {
+  if (!iso) return ''
+  const d = parseART(iso.length === 10 ? `${iso}T12:00:00` : iso)
+  if (!d) return ''
+  return d.toLocaleDateString('es-AR', {
+    timeZone: AR_TZ,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
+
 export const fetchFlashMeta = async (): Promise<FlashMeta> =>
   getJSON<FlashMeta>('/data/flash_meta.json')
 

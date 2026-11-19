@@ -26,6 +26,7 @@ export interface FlashMeta {
   date_min: string
   date_max: string
   zonas: string[]
+  generated_at?: string
 }
 
 export type ControlEstado = 'ok' | 'falta_subir' | 'sin_declarar'
