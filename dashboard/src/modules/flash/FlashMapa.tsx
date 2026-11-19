@@ -1,13 +1,27 @@
-import { useEffect, useMemo, useState } from 'react'
-import { MapContainer, TileLayer, CircleMarker, Popup, GeoJSON, Marker } from 'react-leaflet'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { MapContainer, TileLayer, CircleMarker, Popup, GeoJSON, Marker, Pane, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { fetchFlashPoints } from './api'
 import { useFlashStore } from './store'
+import { useFlashMetaInit } from './useFlashMeta'
 import { FlashFilters } from './FlashFilters'
 import type { FlashPoint } from './types'
 
 const CABA_CENTER: [number, number] = [-34.615, -58.443]
+
+const BASEMAPS = [
+  {
+    name: 'CARTO Dark',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+  },
+  {
+    name: 'OpenStreetMap',
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  },
+]
 
 const ZONA_COLOR: Record<string, string> = {
   'Frontera Norte': '#ef4444',
@@ -63,30 +77,199 @@ const zoneStyle = (feature: any, highlight = false) => {
   }
 }
 
+// Ancla del cartel: centro del bbox del anillo exterior más grande.
+// El promedio de todos los vértices se desplaza hacia los tramos con más
+// puntos y puede dejar la etiqueta fuera del polígono.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const featureCentroid = (feature: any): [number, number] | null => {
+const featureAnchor = (feature: any): [number, number] | null => {
   const geom = feature?.geometry
   if (!geom) return null
-  const collect = (coords: unknown): [number, number][] => {
-    if (!Array.isArray(coords)) return []
-    if (typeof coords[0] === 'number') return [[coords[1] as number, coords[0] as number]]
-    return coords.flatMap(c => collect(c))
+
+  const outerRings: number[][][] = geom.type === 'Polygon'
+    ? [geom.coordinates?.[0]]
+    : geom.type === 'MultiPolygon'
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? geom.coordinates.map((poly: any) => poly?.[0])
+      : []
+  const rings = outerRings.filter((r): r is number[][] => Array.isArray(r) && r.length > 0)
+  if (rings.length === 0) return null
+
+  let best: number[][] | null = null
+  let bestArea = -1
+  for (const ring of rings) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const c of ring) {
+      const [x, y] = c
+      if (x < minX) minX = x
+      if (x > maxX) maxX = x
+      if (y < minY) minY = y
+      if (y > maxY) maxY = y
+    }
+    const area = (maxX - minX) * (maxY - minY)
+    if (area > bestArea) { bestArea = area; best = ring }
   }
-  const pts = collect(geom.coordinates)
-  if (pts.length === 0) return null
-  const lat = pts.reduce((s, p) => s + p[0], 0) / pts.length
-  const lon = pts.reduce((s, p) => s + p[1], 0) / pts.length
-  return [lat, lon]
+  if (!best) return null
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const [x, y] of best) {
+    if (x < minX) minX = x
+    if (x > maxX) maxX = x
+    if (y < minY) minY = y
+    if (y > maxY) maxY = y
+  }
+  return [(minY + maxY) / 2, (minX + maxX) / 2]
 }
 
 type ZoneStat = { zona: string; lat: number; lon: number; puntos: number; personas: number; color: string }
 
+const makeLabelIcon = (s: ZoneStat) => {
+  const dim = s.puntos === 0
+  const opacity = dim ? 0.55 : 1
+  const nombre = ZONA_LABEL[s.zona] ?? s.zona
+  return L.divIcon({
+    className: '',
+    html: `
+      <div style="
+        transform: translate(-50%, -100%);
+        width: max-content;
+        margin-bottom: 14px;
+        opacity: ${opacity};
+        filter: drop-shadow(0 3px 8px rgba(0,0,0,0.55));
+      ">
+        <div style="
+          display: flex;
+          align-items: stretch;
+          background: #ffffff;
+          border-radius: 8px;
+          overflow: hidden;
+          font-family: system-ui, sans-serif;
+          white-space: nowrap;
+          box-shadow: 0 0 0 1px rgba(15,23,42,0.25);
+        ">
+          <div style="width: 5px; background: ${s.color};"></div>
+          <div style="padding: 5px 10px 6px;">
+            <div style="
+              display: flex;
+              align-items: center;
+              gap: 5px;
+              color: #0f172a;
+              font-size: 12px;
+              font-weight: 700;
+              line-height: 1.2;
+            ">
+              <span style="
+                width: 8px; height: 8px;
+                border-radius: 50%;
+                background: ${s.color};
+                flex-shrink: 0;
+              "></span>${nombre}
+            </div>
+            <div style="
+              color: #475569;
+              font-size: 11px;
+              font-weight: 600;
+              margin-top: 1px;
+            ">${s.puntos.toLocaleString('es-AR')} pts · ${s.personas.toLocaleString('es-AR')} PSC</div>
+          </div>
+        </div>
+        <div style="
+          width: 0; height: 0;
+          margin: 0 auto;
+          border-left: 7px solid transparent;
+          border-right: 7px solid transparent;
+          border-top: 8px solid ${s.color};
+        "></div>
+      </div>
+    `,
+    iconSize: [0, 0],
+    iconAnchor: [0, 0],
+  })
+}
+
+// Fuerza a Leaflet a recalcular tamaño cuando el contenedor flex se asienta.
+const MapResizer = () => {
+  const map = useMap()
+  useEffect(() => {
+    const onResize = () => map.invalidateSize()
+    const timer = setTimeout(onResize, 0)
+    window.addEventListener('resize', onResize)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('resize', onResize)
+    }
+  }, [map])
+  return null
+}
+
+const ZONE_LABEL_PANE_Z = 680
+const LABEL_HEIGHT = 42
+const LABEL_GAP = 14
+
+// Evita carteles superpuestos: se dibujan por prioridad (más PSC primero) y
+// se descarta el que colisiona con uno ya aceptado.
+const ZoneLabels = ({ stats }: { stats: ZoneStat[] }) => {
+  const [tick, setTick] = useState(0)
+  const map = useMapEvents({
+    zoomend: () => setTick(t => t + 1),
+    moveend: () => setTick(t => t + 1),
+    resize: () => setTick(t => t + 1),
+  })
+  const [visible, setVisible] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    if (map.getZoom() < 11) {
+      setVisible(new Set())
+      return
+    }
+    const ordered = [...stats].sort(
+      (a, b) => b.personas - a.personas || b.puntos - a.puntos,
+    )
+    const accepted: { l: number; t: number; r: number; b: number }[] = []
+    const next = new Set<string>()
+    for (const s of ordered) {
+      const p = map.latLngToContainerPoint([s.lat, s.lon])
+      const nombre = ZONA_LABEL[s.zona] ?? s.zona
+      const statsTxt = `${s.puntos} pts · ${s.personas} PSC`
+      const width = Math.max(nombre.length * 6.8, statsTxt.length * 5.8) + 32
+      const rect = {
+        l: p.x - width / 2,
+        t: p.y - LABEL_HEIGHT - LABEL_GAP,
+        r: p.x + width / 2,
+        b: p.y - LABEL_GAP,
+      }
+      const collides = accepted.some(a =>
+        rect.l < a.r && rect.r > a.l && rect.t < a.b && rect.b > a.t,
+      )
+      if (collides) continue
+      accepted.push(rect)
+      next.add(s.zona)
+    }
+    setVisible(next)
+  }, [map, stats, tick])
+
+  return (
+    <Pane name="zone-labels" style={{ zIndex: ZONE_LABEL_PANE_Z, pointerEvents: 'none' }}>
+      {stats.filter(s => visible.has(s.zona)).map(s => (
+        <Marker
+          key={`label-${s.zona}`}
+          position={[s.lat, s.lon]}
+          icon={makeLabelIcon(s)}
+          interactive={false}
+        />
+      ))}
+    </Pane>
+  )
+}
+
 export const FlashMapa = () => {
   const { desde, hasta, zonas, turnos } = useFlashStore()
-  const [points, setPoints]     = useState<FlashPoint[]>([])
-  const [loading, setLoading]   = useState(false)
+  const { ready, error: metaError } = useFlashMetaInit()
+  const [points, setPoints] = useState<FlashPoint[]>([])
+  const [loading, setLoading] = useState(false)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [geojson, setGeojson]   = useState<any>(null)
+  const [geojson, setGeojson] = useState<any>(null)
+  const [basemapIdx, setBasemapIdx] = useState(0)
+  const tileErrors = useRef(0)
 
   useEffect(() => {
     fetch('/data/mapa_flash.geojson')
@@ -96,16 +279,26 @@ export const FlashMapa = () => {
   }, [])
 
   useEffect(() => {
-    if (!desde || !hasta || zonas.size === 0 || turnos.size === 0) return
+    if (!ready || !desde || !hasta || zonas.size === 0 || turnos.size === 0) return
     setLoading(true)
     fetchFlashPoints({ desde, hasta, zonas: [...zonas], turnos: [...turnos] })
       .then(data => { setPoints(data); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [desde, hasta, zonas, turnos])
+  }, [ready, desde, hasta, zonas, turnos])
 
   const maxPersonas = Math.max(1, ...points.map(p => p.personas))
   const radius = (p: FlashPoint) => 4 + (p.personas / maxPersonas) * 16
   const pointColor = (p: FlashPoint) => ZONA_COLOR[p.localizacion ?? ''] ?? '#f97316'
+
+  const handleTileError = () => {
+    tileErrors.current += 1
+    if (tileErrors.current >= 5) {
+      tileErrors.current = 0
+      // Varios tiles fallan en el mismo tick: clampear el índice dentro del
+      // updater evita saltar a un basemap inexistente.
+      setBasemapIdx(i => (i < BASEMAPS.length - 1 ? i + 1 : i))
+    }
+  }
 
   const zoneStats: ZoneStat[] = useMemo(() => {
     if (!geojson?.features) return []
@@ -122,7 +315,7 @@ export const FlashMapa = () => {
     for (const f of geojson.features as any[]) {
       const z = f?.properties?.zona
       if (!z || byZone.has(z)) continue
-      const c = featureCentroid(f)
+      const c = featureAnchor(f)
       if (c) byZone.set(z, { lat: c[0], lon: c[1] })
     }
     const stats: ZoneStat[] = []
@@ -133,79 +326,35 @@ export const FlashMapa = () => {
     return stats
   }, [geojson, points])
 
-  const makeLabelIcon = (s: ZoneStat) => {
-    const dim = s.puntos === 0
-    const opacity = dim ? 0.55 : 1
-    const nombre = ZONA_LABEL[s.zona] ?? s.zona
-    return L.divIcon({
-      className: '',
-      html: `
-        <div style="
-          transform: translate(-50%, -100%);
-          margin-bottom: 16px;
-          opacity: ${opacity};
-          filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6));
-        ">
-          <div style="
-            background: rgba(15,23,42,0.95);
-            border-radius: 10px;
-            overflow: hidden;
-            font-family: system-ui, sans-serif;
-            white-space: nowrap;
-            border: 1.5px solid ${s.color};
-          ">
-            <div style="
-              background: ${s.color};
-              color: #fff;
-              font-size: 12px;
-              font-weight: 800;
-              letter-spacing: 0.5px;
-              text-transform: uppercase;
-              padding: 5px 12px;
-              text-shadow: 0 1px 2px rgba(0,0,0,0.35);
-            ">${nombre}</div>
-            <div style="
-              color: #f1f5f9;
-              font-size: 11.5px;
-              font-weight: 600;
-              padding: 4px 12px 5px;
-              text-align: center;
-            ">
-              <span style="color:#93c5fd">${s.puntos.toLocaleString('es-AR')} pts</span>
-              <span style="opacity:0.5; margin: 0 4px;">·</span>
-              <span style="color:#86efac">${s.personas.toLocaleString('es-AR')} PSC</span>
-            </div>
-          </div>
-          <div style="
-            width: 0; height: 0;
-            margin: 0 auto;
-            border-left: 8px solid transparent;
-            border-right: 8px solid transparent;
-            border-top: 9px solid ${s.color};
-          "></div>
-        </div>
-      `,
-      iconSize: [0, 0],
-      iconAnchor: [0, 0],
-    })
-  }
+  const basemap = BASEMAPS[basemapIdx] ?? BASEMAPS[0]
 
   return (
     <div className="flex flex-col flex-1">
       <FlashFilters />
-      {loading && (
-        <div className="text-gray-500 text-sm px-6 py-2">Cargando puntos…</div>
+      {metaError && (
+        <div className="text-red-500 text-sm px-6 py-2">{metaError}</div>
       )}
-      <div className="flex-1" style={{ minHeight: '500px' }}>
+      {(!ready || loading) && (
+        <div className="text-gray-500 text-sm px-6 py-2">
+          {!ready ? 'Cargando datos…' : 'Cargando puntos…'}
+        </div>
+      )}
+      <div className="flex-1 relative" style={{ minHeight: '500px' }}>
         <MapContainer
           center={CABA_CENTER}
           zoom={12}
+          minZoom={10}
+          maxZoom={19}
           style={{ height: '100%', width: '100%', minHeight: '500px' }}
           className="bg-slate-900"
         >
+          <MapResizer />
           <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+            key={basemap.url}
+            url={basemap.url}
+            attribution={basemap.attribution}
+            maxZoom={19}
+            eventHandlers={{ tileerror: handleTileError }}
           />
           {geojson && (
             <GeoJSON
@@ -236,15 +385,13 @@ export const FlashMapa = () => {
               </Popup>
             </CircleMarker>
           ))}
-          {zoneStats.map(s => (
-            <Marker
-              key={`label-${s.zona}`}
-              position={[s.lat, s.lon]}
-              icon={makeLabelIcon(s)}
-              interactive={false}
-            />
-          ))}
+          <ZoneLabels stats={zoneStats} />
         </MapContainer>
+        {basemapIdx > 0 && (
+          <div className="absolute top-3 left-3 z-[700] bg-slate-900/90 text-white text-[11px] px-2 py-1 rounded shadow">
+            Basemap alternativo: {basemap.name}
+          </div>
+        )}
       </div>
     </div>
   )

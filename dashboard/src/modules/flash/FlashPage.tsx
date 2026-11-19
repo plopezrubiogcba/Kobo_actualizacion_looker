@@ -2,28 +2,20 @@ import { useEffect, useState } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList,
 } from 'recharts'
-import { fetchFlashMeta, fetchFlashSummary } from './api'
+import { fetchFlashSummary } from './api'
 import { useFlashStore } from './store'
+import { useFlashMetaInit } from './useFlashMeta'
 import { FlashFilters } from './FlashFilters'
 import type { FlashSummary } from './types'
 
 const EMPTY: FlashSummary = { rows: [], totals: { puntos: 0, personas: 0 } }
 
 export const FlashPage = () => {
-  const { desde, hasta, granularity, zonas, turnos, topN, initFromMeta } = useFlashStore()
+  const { desde, hasta, granularity, zonas, turnos, topN } = useFlashStore()
+  const { ready: metaLoaded, error: metaError } = useFlashMetaInit()
   const [data, setData] = useState<FlashSummary>(EMPTY)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [metaLoaded, setMetaLoaded] = useState(false)
-
-  useEffect(() => {
-    fetchFlashMeta()
-      .then(meta => {
-        initFromMeta(meta.date_min, meta.date_max, meta.zonas)
-        setMetaLoaded(true)
-      })
-      .catch(e => setError(String(e)))
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!metaLoaded || !desde || !hasta || zonas.size === 0 || turnos.size === 0) return
@@ -43,11 +35,11 @@ export const FlashPage = () => {
 
       <FlashFilters />
 
-      {error && (
-        <div className="px-6 py-4 text-red-500 text-sm">{error}</div>
+      {(error || metaError) && (
+        <div className="px-6 py-4 text-red-500 text-sm">{error || metaError}</div>
       )}
 
-      {!error && (
+      {!(error || metaError) && (
         <div className="p-6 flex flex-col gap-6">
           <div className="flex gap-4 flex-wrap items-stretch">
             <StatCard label="Personas observadas (PSC)" value={data.totals.personas} color="bg-blue-600" />
