@@ -10,16 +10,26 @@ import type { FlashPoint } from './types'
 
 const CABA_CENTER: [number, number] = [-34.615, -58.443]
 
+// CARTO pasó a exigir API key (los tiles devuelven "API KEY REQUIRED"),
+// así que el basemap oscuro primario ahora es Esri (keyless).
 const BASEMAPS = [
   {
-    name: 'CARTO Dark',
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+    name: 'Esri Dark Gray',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
+    maxNativeZoom: 16,
+  },
+  {
+    name: 'Esri World Imagery',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics',
+    maxNativeZoom: 19,
   },
   {
     name: 'OpenStreetMap',
     url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxNativeZoom: 19,
   },
 ]
 
@@ -329,7 +339,7 @@ export const FlashMapa = () => {
   const basemap = BASEMAPS[basemapIdx] ?? BASEMAPS[0]
 
   return (
-    <div className="flex flex-col flex-1">
+    <div className="flex flex-col" style={{ height: 'calc(100vh - 56px)' }}>
       <FlashFilters />
       {metaError && (
         <div className="text-red-500 text-sm px-6 py-2">{metaError}</div>
@@ -354,6 +364,7 @@ export const FlashMapa = () => {
             url={basemap.url}
             attribution={basemap.attribution}
             maxZoom={19}
+            maxNativeZoom={basemap.maxNativeZoom}
             eventHandlers={{ tileerror: handleTileError }}
           />
           {geojson && (
